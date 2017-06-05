@@ -60,7 +60,9 @@ def get_inputs(input_dir, ext):
 
             R1 = sorted(glob.glob('{}{}*R1*{}'.format(input_dir, folder, ext)))
             R2 = sorted(glob.glob('{}{}*R2*{}'.format(input_dir, folder, ext)))
-            inputs[folder] = ([a[len(input_dir)+len(folder):] for a in R1], [a[len(input_dir)+len(folder):] for a in R2])
+
+            if R1 and R2:
+                inputs[folder] = ([a[len(input_dir)+len(folder):] for a in R1], [a[len(input_dir)+len(folder):] for a in R2])
     else:
         folder = input_dir.split('/')[-2]
         input_dir = '/'.join(input_dir.split('/')[:-2])
@@ -73,7 +75,10 @@ def get_inputs(input_dir, ext):
 
         inputs[folder] = ([a[len(input_dir)+len(folder):] for a in R1], [a[len(input_dir)+len(folder):] for a in R2])
 
-    return input_dir, inputs
+    if input_dir and inputs:
+        return input_dir, inputs
+    else:
+        return None, None
 
 
 def concatenate_reads(input_dir, inputs):
@@ -87,7 +92,10 @@ def concatenate_reads(input_dir, inputs):
             out_prefix = list(out_prefix)[0]
         else:
             print "\nERROR, concatenate_reads() cannot finds common filename!"
-            print out_prefix
+            print 'out_prefix', out_prefix
+            print 'folder', folder
+            print 'R1s', R1s
+            print 'R2s', R2s
             print "\n"
             sys.exit(1)
 
@@ -188,7 +196,7 @@ def split_and_sort(input_dir, screened, keep_intermediate):
             print "\n"
             sys.exit(1)
 
-        cmd = 'python split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(input_dir+folder+R1, input_dir+folder+R2, input_dir+folder+out+put)
+        cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(input_dir+folder+R1, input_dir+folder+R2, input_dir+folder+out+put)
         DoitLoader.add_task([input_dir+folder+out+put+'.R1.fastq', input_dir+folder+out+put+'.R2.fastq', input_dir+folder+out+put+'.UP.fastq'], [input_dir+folder+R1, input_dir+folder+R2], [cmd])
 
         if not keep_intermediate:
