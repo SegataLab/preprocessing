@@ -4,8 +4,8 @@
 
 
 __author__ = 'Duy Tin Truong (duytin.truong@unitn.it), Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.3'
-__date__ = '21 March 2017'
+__version__ = '0.4'
+__date__ = '7 June 2017'
 
 
 import sys
@@ -113,7 +113,7 @@ def concatenate_reads(input_dir, inputs):
 
 def quality_control(input_dir, merged, keep_intermediate):
     qc = dict()
-    files_to_remove = list()
+    files_to_remove = []
 
     for folder, Rs in merged.iteritems():
         qc[folder] = list()
@@ -125,7 +125,7 @@ def quality_control(input_dir, merged, keep_intermediate):
             DoitLoader.add_task([input_dir+folder+oR+'_trimmed.fq'], [input_dir+folder+R], [cmd])
 
             if not keep_intermediate:
-                files_to_remove.append(input_dir+folder+R)
+                files_to_remove.append(((input_dir+folder+oR+'_trimmed.fq', ), input_dir+folder+R))
 
             cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+oR+'_trimmed.fq', input_dir+folder+oR+'_trimmed.stats')
             DoitLoader.add_task([input_dir+folder+oR+'_trimmed.stats'], [input_dir+folder+oR+'_trimmed.fq'], [cmd])
@@ -133,14 +133,14 @@ def quality_control(input_dir, merged, keep_intermediate):
             qc[folder].append(oR+'_trimmed.fq')
 
     if files_to_remove:
-        cmd = 'rm -f {}'.format(' '.join(files_to_remove))
-        DoitLoader.add_task([], [], [cmd])
+        for dep, to_rm in files_to_remove:
+            DoitLoader.add_task([], list(dep), ['rm {}'.format(to_rm)], uptodate=[False])
 
     return qc
 
 
 def screen_contaminating_dnas(input_dir, qc, bowtie2_indexes, keep_intermediate, remove_ribosomes=False, nprocs_bowtie2=1):
-    files_to_remove = list()
+    files_to_remove = []
     screened = dict()
     cont_dnas = ['hg19', 'phiX174']
 
@@ -164,8 +164,7 @@ def screen_contaminating_dnas(input_dir, qc, bowtie2_indexes, keep_intermediate,
                 DoitLoader.add_task([input_dir+folder+outf+'.fastq', input_dir+folder+outf+'.sam'], [input_dir+folder+iR+Rext], [cmd, {'env': {'BOWTIE2_INDEXES': bowtie2_indexes}}])
 
                 if not keep_intermediate:
-                    files_to_remove.append(input_dir+folder+iR+Rext)
-                    files_to_remove.append(input_dir+folder+outf+'.sam')
+                    files_to_remove.append(((input_dir+folder+outf+'.fastq', ), ' '.join([input_dir+folder+iR+Rext, input_dir+folder+outf+'.sam'])))
 
                 Rext = '.fastq'
                 final = outf+'.fastq'
@@ -176,14 +175,14 @@ def screen_contaminating_dnas(input_dir, qc, bowtie2_indexes, keep_intermediate,
             screened[folder] += tuple([final])
 
     if files_to_remove:
-        cmd = 'rm -f {}'.format(' '.join(files_to_remove))
-        DoitLoader.add_task([], [], [cmd])
+        for dep, to_rm in files_to_remove:
+            DoitLoader.add_task([], list(dep), ['rm {}'.format(to_rm)], uptodate=[False])
 
     return screened
 
 
 def split_and_sort(input_dir, screened, keep_intermediate):
-    files_to_remove = list()
+    files_to_remove = []
 
     for folder, (R1, R2) in screened.iteritems():
         out = R1[:R1.find('.')]
@@ -197,18 +196,18 @@ def split_and_sort(input_dir, screened, keep_intermediate):
             sys.exit(1)
 
         cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(input_dir+folder+R1, input_dir+folder+R2, input_dir+folder+out+put)
-        DoitLoader.add_task([input_dir+folder+out+put+'.R1.fastq', input_dir+folder+out+put+'.R2.fastq', input_dir+folder+out+put+'.UP.fastq'], [input_dir+folder+R1, input_dir+folder+R2], [cmd])
+        DoitLoader.add_task([input_dir+folder+out+put+'.R1.fastq.bz2', input_dir+folder+out+put+'.R2.fastq.bz2', input_dir+folder+out+put+'.UP.fastq.bz2'], [input_dir+folder+R1, input_dir+folder+R2], [cmd])
 
         if not keep_intermediate:
-            files_to_remove.append(input_dir+folder+R1)
-            files_to_remove.append(input_dir+folder+R2)
+            files_to_remove.append(((input_dir+folder+out+put+'.R1.fastq.bz2', input_dir+folder+out+put+'.R2.fastq.bz2', input_dir+folder+out+put+'.UP.fastq.bz2'), ' '.join([input_dir+folder+R1, input_dir+folder+R2])))
 
     if files_to_remove:
-        cmd = 'rm -f {}'.format(' '.join(files_to_remove))
-        DoitLoader.add_task([], [], [cmd])
+        for dep, to_rm in files_to_remove:
+            DoitLoader.add_task([], list(dep), ['rm {}'.format(to_rm)], uptodate=[False])
 
 
-def main(args):
+if __name__ == "__main__":
+    args = read_params()
     answer = None
     code = 1
 
@@ -230,9 +229,4 @@ def main(args):
     if (answer is None) or (answer.upper()[0] == 'Y'):
         code = DoitLoader.run(doit_args)
 
-    return code
-
-
-if __name__ == "__main__":
-    args = read_params()
-    sys.exit(main(args))
+    sys.exit(code)
