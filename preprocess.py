@@ -2,8 +2,8 @@
 
 
 __author__ = 'Duy Tin Truong (duytin.truong@unitn.it), Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.5'
-__date__ = '23 June 2017'
+__version__ = '0.6'
+__date__ = '4 July 2017'
 
 
 import sys
@@ -239,6 +239,9 @@ def split_and_sort(input_dir, screened, keep_intermediate):
 
         if not keep_intermediate:
             DoitLoader.add_task([], [input_dir+folder+out+put+'.R1.fastq.bz2', input_dir+folder+out+put+'.R2.fastq.bz2', input_dir+folder+out+put+'.UP.fastq.bz2', input_dir+folder+out+put+'.R1.stats', input_dir+folder+out+put+'.R2.stats', input_dir+folder+out+put+'.UP.stats'], ['rm {} {}'.format(input_dir+folder+R1, input_dir+folder+R2)])
+
+        cmd = 'cat_stats.py -i {} -o {}'.format(input_dir+folder, input_dir+folder+out+put+'_summary.stats')
+        DoitLoader.add_task([input_dir+folder+out+put+'.R1.stats', input_dir+folder+out+put+'.R2.stats', input_dir+folder+out+put+'.UP.stats'], [input_dir+folder+out+put+'_summary.stats'], [cmd])
 
 
 if __name__ == "__main__":
