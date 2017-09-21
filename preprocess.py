@@ -115,17 +115,18 @@ def concatenate_reads(input_dir, inputs):
 
     for folder, (R1s, R2s) in inputs.iteritems():
         merged[folder] = list()
-        out_prefix = set(['_'.join(a.split('_')[:4]) for a in R1s + R2s])
+        out_prefix = set(['_'.join(a.split('_')[:-4]) for a in R1s + R2s])
 
         if len(out_prefix) == 1:
             out_prefix = list(out_prefix)[0]
         else:
-            out_prefix = set(['_'.join(a.split('_')[:3]) for a in R1s + R2s])
+            # out_prefix = set(['_'.join(a.split('_')[:3]) for a in R1s + R2s])
 
-            if len(out_prefix) == 1:
-                out_prefix = list(out_prefix)[0]
-            else:
-                error('concatenate_reads() cannot finds common filename!\n    {}'.format('\n    '.join('{} "{}"'.format(a, b) for a, b in zip(['out_prefix', 'folder', 'R1s', 'R2s'], [out_prefix, folder, R1s, R2s]))), exit=True)
+            # if len(out_prefix) == 1:
+            #     out_prefix = list(out_prefix)[0]
+            # else:
+            #     error('concatenate_reads() cannot finds common filename!\n    {}'.format('\n    '.join('{} "{}"'.format(a, b) for a, b in zip(['out_prefix', 'folder', 'R1s', 'R2s'], [out_prefix, folder, R1s, R2s]))), exit=True)
+            error('concatenate_reads() cannot finds common filename!\n    {}'.format('\n    '.join('{} "{}"'.format(a, b) for a, b in zip(['out_prefix', 'folder', 'R1s', 'R2s'], [out_prefix, folder, R1s, R2s]))), exit=True)
 
         # info('    folder: {}\n'.format(folder))
         # info('out_prefix: {}\n\n'.format(out_prefix))
