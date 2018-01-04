@@ -4,7 +4,7 @@
 __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), Francesco Asnicar '
               '(f.asnicar@unitn.it)')
 __version__ = '0.6'
-__date__ = '4 July 2017'
+__date__ = '4 January 2018'
 
 
 import sys
@@ -183,8 +183,8 @@ def screen_contaminating_dnas(input_dir, qc, bowtie2_indexes,
     cont_dnas = ['hg19', 'phiX174']
 
     if remove_ribosomes:
-        cont_dnas += ['SILVA_119.1_SSURef_Nr99_tax_silva',
-                      'SILVA_119_LSURef_tax_silva']
+        cont_dnas += ['SILVA_132_SSURef_Nr99_tax_silva',
+                      'SILVA_132_LSURef_tax_silva']
 
     for folder, Rs in qc.iteritems():
         screened[folder] = tuple()
