@@ -12,6 +12,7 @@ import os
 import glob
 import argparse
 from doit_loader import DoitLoader
+import subprocess as sb
 
 
 def info(s, init_new_line=False, exit=False, exit_value=0):
@@ -73,6 +74,18 @@ def check_params(args):
 
     if not args.input_dir.endswith('/'):
         args.input_dir += '/'
+
+
+def preflight_check():
+    commands = [['zcat', '-h'], ['fna_len.py', '-h'], ['trim_galore', '-h'],
+                ['bowtie2', '-h'], ['split_and_sort.py', '-h'], ['cat_stats.py', '-h']]
+
+    for sw in commands:
+        try:
+            with open(os.devnull, 'w') as devnull:
+                sb.check_call(sw, stdout=devnull, stderr=devnull)
+        except Exception as e:
+            error('"{}" command not found'.format(sw[0]), exit=True)
 
 
 def get_inputs(input_dir, ext):
@@ -307,6 +320,9 @@ if __name__ == "__main__":
     check_params(args)
     answer = None
     code = 1
+
+    # check that all the needed software is available
+    preflight_check()
 
     # get input files
     input_dir, inputs = get_inputs(args.input_dir, args.extension)
