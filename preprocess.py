@@ -3,8 +3,8 @@
 
 __author__ = ('Duy Tin Truong (duytin.truong@unitn.it), Francesco Asnicar '
               '(f.asnicar@unitn.it)')
-__version__ = '0.6'
-__date__ = '4 January 2018'
+__version__ = '0.7'
+__date__ = '7 March 2018'
 
 
 import sys
@@ -38,31 +38,28 @@ def error(s, init_new_line=False, exit=False, exit_value=1):
 
 
 def read_params():
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     p.add_argument('-i', '--input_dir', required=True, default=None, type=str,
                    help='The input directory, path must be absolute!')
-    p.add_argument('-e', '--extension', required=False, default=".fastq.gz",
-                   type=str, help=('The extension of the raw input files. '
-                                   'Default ".fastq.gz"'))
+    p.add_argument('-e', '--extension', required=False, default=".fastq.gz", type=str,
+                   help='The extension of the raw input files.')
     p.add_argument('-t', '--use_threads', required=False, action='store_true',
                    help='Use threads')
     p.add_argument('-m', '--nprocs_main', required=False, default=1, type=int,
                    help='Number of tasks to run in parallel')
-    p.add_argument('-b', '--nprocs_bowtie2', required=False, default=1,
-                   type=int, help='Number of bowtie2 processors')
+    p.add_argument('-b', '--nprocs_bowtie2', required=False, default=1, type=int,
+                   help='Number of bowtie2 processors')
     p.add_argument('-r', '--remove_ribosomes', required=False, default=False,
-                   action='store_true', help=('Remove ribosomes for mRNA '
-                                              'datasets'))
-    p.add_argument('-c', '--clean', required=False, default=False,
-                   action='store_true', help='clean')
+                   action='store_true', help='Remove ribosomes for mRNA datasets')
+    p.add_argument('-c', '--clean', required=False, default=False, action='store_true',
+                   help='clean')
     p.add_argument('-k', '--keep_intermediate', required=False, default=False,
-                   action='store_true', help=("If specified the script won't "
-                                              "remove intermediate files"))
+                   action='store_true', help=("If specified the script won't remove "
+                                              "intermediate files"))
     p.add_argument('-x', '--bowtie2_indexes', required=False,
                    default='/CM/databases/bowtie2_indexes', type=str,
-                   help=('Folder containing the bowtie2 indexes of the '
-                         'genomes to be removed from the samples. Default '
-                         '"/CM/databases/bowtie2_indexes"'))
+                   help=('Folder containing the bowtie2 indexes of the genomes to be '
+                         'removed from the samples.'))
 
     return p.parse_args()
 
@@ -139,7 +136,10 @@ def concatenate_reads(input_dir, inputs):
             #     out_prefix = list(out_prefix)[0]
             # else:
             #     error('concatenate_reads() cannot finds common filename!\n    {}'.format('\n    '.join('{} "{}"'.format(a, b) for a, b in zip(['out_prefix', 'folder', 'R1s', 'R2s'], [out_prefix, folder, R1s, R2s]))), exit=True)
-            error('concatenate_reads() cannot finds common filename!\n    {}'.format('\n    '.join('{} "{}"'.format(a, b) for a, b in zip(['out_prefix', 'folder', 'R1s', 'R2s'], [out_prefix, folder, R1s, R2s]))), exit=True)
+            error('concatenate_reads() cannot finds common filename!\n    {}'
+                  .format('\n    '.join('{} "{}"'.format(a, b) for a, b in
+                                         zip(['out_prefix', 'folder', 'R1s', 'R2s'],
+                                             [out_prefix, folder, R1s, R2s]))), exit=True)
 
         # info('    folder: {}\n'.format(folder))
         # info('out_prefix: {}\n\n'.format(out_prefix))
@@ -151,7 +151,8 @@ def concatenate_reads(input_dir, inputs):
                                 [cmd, {'stdout':
                                        input_dir + folder + oR + '.fastq'}])
 
-            cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+oR+'.fastq', input_dir+folder+oR+'.stats')
+            cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+oR+'.fastq',
+                                                      input_dir+folder+oR+'.stats')
             DoitLoader.add_task([input_dir + folder + oR + '.stats'],
                                 [input_dir + folder + oR + '.fastq'], [cmd])
 
@@ -276,42 +277,45 @@ def split_and_sort(input_dir, screened, keep_intermediate):
             error('split_and_sort() cannot finds common filename!\n    {}'.format('\n    '.join(['{} "{}"'.format(a, b) for a, b in zip(['R1', 'R2'], [out+put, R2[:R2.find('.')]+R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '')])])), exit=True)
 
         cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(input_dir+folder+R1, input_dir+folder+R2, input_dir+folder+out+put)
-        DoitLoader.add_task([input_dir + folder + out + put + '.R1.fastq.bz2',
-                             input_dir + folder + out + put + '.R2.fastq.bz2',
-                             input_dir + folder + out + put + '.UP.fastq.bz2'],
+        DoitLoader.add_task([input_dir + folder + out + put + '_R1.fastq.bz2',
+                             input_dir + folder + out + put + '_R2.fastq.bz2',
+                             input_dir + folder + out + put + '_UN.fastq.bz2'],
                             [input_dir + folder + R1, input_dir + folder + R2],
                             [cmd])
 
-        cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+out+put+'.R1.fastq.bz2', input_dir+folder+out+put+'.R1.stats')
-        DoitLoader.add_task([input_dir + folder + out + put + '.R1.stats'],
-                            [input_dir + folder + out + put + '.R1.fastq.bz2'],
+        cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+out+put+'_R1.fastq.bz2',
+                                                  input_dir+folder+out+put+'_R1.stats')
+        DoitLoader.add_task([input_dir + folder + out + put + '_R1.stats'],
+                            [input_dir + folder + out + put + '_R1.fastq.bz2'],
                             [cmd])
 
-        cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+out+put+'.R2.fastq.bz2', input_dir+folder+out+put+'.R2.stats')
-        DoitLoader.add_task([input_dir + folder + out + put + '.R2.stats'],
-                            [input_dir + folder + out + put + '.R2.fastq.bz2'],
+        cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+out+put+'_R2.fastq.bz2',
+                                                  input_dir+folder+out+put+'_R2.stats')
+        DoitLoader.add_task([input_dir + folder + out + put + '_R2.stats'],
+                            [input_dir + folder + out + put + '_R2.fastq.bz2'],
                             [cmd])
 
-        cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+out+put+'.UP.fastq.bz2', input_dir+folder+out+put+'.UP.stats')
-        DoitLoader.add_task([input_dir + folder + out + put + '.UP.stats'],
-                            [input_dir + folder + out + put + '.UP.fastq.bz2'],
+        cmd = 'fna_len.py {} {} -q --stat'.format(input_dir+folder+out+put+'_UN.fastq.bz2',
+                                                  input_dir+folder+out+put+'_UN.stats')
+        DoitLoader.add_task([input_dir + folder + out + put + '_UN.stats'],
+                            [input_dir + folder + out + put + '_UN.fastq.bz2'],
                             [cmd])
 
         if not keep_intermediate:
-            DoitLoader.add_task([], [input_dir + folder + out + put + '.R1.fastq.bz2',
-                                     input_dir + folder + out + put + '.R2.fastq.bz2',
-                                     input_dir + folder + out + put + '.UP.fastq.bz2',
-                                     input_dir + folder + out + put + '.R1.stats',
-                                     input_dir + folder + out + put + '.R2.stats',
-                                     input_dir + folder + out + put + '.UP.stats'],
+            DoitLoader.add_task([], [input_dir + folder + out + put + '_R1.fastq.bz2',
+                                     input_dir + folder + out + put + '_R2.fastq.bz2',
+                                     input_dir + folder + out + put + '_UN.fastq.bz2',
+                                     input_dir + folder + out + put + '_R1.stats',
+                                     input_dir + folder + out + put + '_R2.stats',
+                                     input_dir + folder + out + put + '_UN.stats'],
                                     ['rm {} {}'.format(input_dir + folder + R1,
                                                        input_dir + folder + R2)])
 
         cmd = 'cat_stats.py -i {} -o {}'.format(input_dir+folder, input_dir+folder+out+put+'_summary.stats')
         DoitLoader.add_task([input_dir + folder + out + put + '_summary.stats'],
-                            [input_dir + folder + out + put + '.R1.stats',
-                             input_dir + folder + out + put + '.R2.stats',
-                             input_dir + folder + out + put + '.UP.stats'],
+                            [input_dir + folder + out + put + '_R1.stats',
+                             input_dir + folder + out + put + '_R2.stats',
+                             input_dir + folder + out + put + '_UN.stats'],
                             [cmd])
 
 

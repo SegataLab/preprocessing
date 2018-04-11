@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1'
-__date__ = '5 July 2017'
+__version__ = '0.2'
+__date__ = '7 March 2018'
 
 
 import sys
@@ -35,12 +35,17 @@ def error(s, init_new_line=False, exit=False, exit_value=1):
 
 
 def read_params():
-    p = argparse.ArgumentParser()
-    p.add_argument('-i', '--input_dir', required=True, default=None, type=str, help='Input folder containing the files to cat')
-    p.add_argument('-e', '--extension', required=False, default=".stats", type=str, help='The extension of the files to cat, default ".stats"')
-    p.add_argument('-o', '--output_file', required=True, default=None, type=str, help='The output file to write')
-    p.add_argument('--inp_sep', required=False, default="\t", type=str, help='Define the field-separator character for the input files, default "\\t"')
-    p.add_argument('--out_sep', required=False, default="\t", type=str, help='Define the field-separator character for the output file, default "\\t"')
+    p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    p.add_argument('-i', '--input_dir', required=True, default=None, type=str,
+                   help='Input folder containing the files to cat')
+    p.add_argument('-e', '--extension', required=False, default=".stats", type=str,
+                   help='The extension of the files to cat')
+    p.add_argument('-o', '--output_file', required=True, default=None, type=str,
+                   help='The output file to write')
+    p.add_argument('--inp_sep', required=False, default="\t", type=str,
+                   help='Define the field-separator character for the input files')
+    p.add_argument('--out_sep', required=False, default="\t", type=str,
+                   help='Define the field-separator character for the output file')
 
     return p.parse_args()
 
@@ -50,20 +55,22 @@ def check_params(args):
         args.input_dir += '/'
 
     if not args.extension.startswith('.'):
-        args.extension = '.'+args.extension
+        args.extension = '.' + args.extension
 
     if len(args.inp_sep) > 1:
-        error('input field-separator is more than one characther, "{}"'.format(args.inp_sep), exit=True)
+        error('input field-separator is more than one characther, "{}"'
+              .format(args.inp_sep), exit=True)
 
     if len(args.out_sep) > 1:
-        error('output field-separator is more than one characther, "{}"'.format(args.out_sep), exit=True)
+        error('output field-separator is more than one characther, "{}"'
+              .format(args.out_sep), exit=True)
 
 
 def cat(input_dir, ext, inp_sep):
     header = None
     data = []
 
-    for stat_file in sorted(glob.glob(input_dir+'*'+ext)):
+    for stat_file in sorted(glob.glob(input_dir + '*' + ext)):
         with open(stat_file) as f:
             for row in f:
                 if not header and row.startswith('#'):
@@ -73,7 +80,7 @@ def cat(input_dir, ext, inp_sep):
                     data.append(row.strip().split(inp_sep))
 
     if header:
-        data = [header]+data
+        data = [header] + data
 
     return data
 
