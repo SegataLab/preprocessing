@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 
 
-__author__ = ('Duy Tin Truong (duytin.truong@unitn.it), Francesco Asnicar '
-              '(f.asnicar@unitn.it)')
-__version__ = '0.7'
-__date__ = '7 March 2018'
+__author__ = ('Francesco Asnicar (f.asnicar@unitn.it), '
+              'Duy Tin Truong')
+__version__ = '0.8'
+__date__ = '17 April 2018'
 
 
 import sys
