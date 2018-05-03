@@ -1,15 +1,17 @@
 #!/usr/bin/env python
 
 
-__author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2'
-__date__ = '7 March 2018'
+__author__ = ('Francesco Asnicar (f.asnicar@unitn.it), '
+              'Paolo Manghi (paolo.manghi@unitn.it)')
+__version__ = '0.3'
+__date__ = '2 May 2018'
 
 
 import sys
 import os
 import glob
 import argparse
+import numpy as np
 
 
 def info(s, init_new_line=False, exit=False, exit_value=0):
@@ -85,17 +87,51 @@ def cat(input_dir, ext, inp_sep):
     return data
 
 
+def line_of_interest(sample_id):
+    return (sample_id.endswith('_R1.fastq') or sample_id.endswith('_R2.fastq') or
+            sample_id.endswith('_UN.fastq') or sample_id.endswith('_UP.fastq'))
+
+
+def line_to_str_or_float(line):
+    return [float(f) if str(f)[-1].isdigit() else str(f) for f in line]
+
+
+def summarize(data):
+    funcs = {'n_of_bases': sum,
+             'n_of_reads': sum,
+             'min_read_len': min,
+             'median_read_len': np.median,
+             'mean_read_len': np.mean,
+             'max_read_len': max}
+    convs = {'n_of_bases': int,
+             'n_of_reads': int,
+             'min_read_len': int,
+             'median_read_len': float,
+             'mean_read_len': float,
+             'max_read_len': int}
+
+    interesting_lines = [line_to_str_or_float(line) for line in data if line_of_interest(line[0])]
+
+    for pos, fld in enumerate(data[0]):
+        if pos == 0:
+            summary = ['_'.join(interesting_lines[0][0].split('_')[:-1])]
+        else:
+            summary += [convs[fld](funcs[fld]([field[pos] for field in interesting_lines]))]
+
+    return data + [summary]
+
+
 def write_output_file(output_file, out_sep, data):
     if os.path.isfile(output_file):
         error('output file "{}" already exists'.format(output_file), exit=True)
 
     with open(output_file, 'w') as f:
-        f.write('\n'.join([out_sep.join(a) for a in data]) + '\n')
+        f.write('\n'.join([out_sep.join(map(str, a)) for a in data]) + '\n')
 
 
 if __name__ == "__main__":
     args = read_params()
     check_params(args)
-    data = cat(args.input_dir, args.extension, args.inp_sep)
+    data = summarize(cat(args.input_dir, args.extension, args.inp_sep))
     write_output_file(args.output_file, args.out_sep, data)
     sys.exit(0)
