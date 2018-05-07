@@ -121,14 +121,8 @@ def demultiplex(input_folder, output_folder, mapping):
                     glob.glob(os.path.join(fld, '*_R2.fastq.bz2')) +
                     glob.glob(os.path.join(fld, '*_UN.fastq.bz2')) +
                     glob.glob(os.path.join(fld, '*_summary.stats'))):
-            sample_name = src[len(fld) + 1:]
-            sample_name_orig = os.path.basename(src[:len(fld)])
-
-            if sample_name_orig.startswith('Sample_'):
-                sample_name_orig = sample_name_orig[len('Sample_'):]
-
-            sample_name = sample_name.replace(sample_name_orig, new_name)
-            dest = os.path.join(output, sample_name)
+            suffix = src.split('_')[-1]
+            dest = os.path.join(output, new_name + '_' + suffix)
 
             info('Copying "{}" into "{}"\n'.format(src, dest))
             shutil.copy2(src, dest)
