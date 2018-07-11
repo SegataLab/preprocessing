@@ -2,9 +2,10 @@
 
 
 __author__ = ('Francesco Asnicar (f.asnicar@unitn.it), '
-              'Duy Tin Truong')
-__version__ = '0.8'
-__date__ = '17 April 2018'
+              'Duy Tin Truong ',
+              'Nicola Segata (nicola.segata@unitn.it)')
+__version__ = '0.9'
+__date__ = '16 May 2018'
 
 
 import sys
@@ -49,10 +50,12 @@ def read_params():
                    help='Number of tasks to run in parallel')
     p.add_argument('-b', '--nprocs_bowtie2', required=False, default=1, type=int,
                    help='Number of bowtie2 processors')
-    p.add_argument('-r', '--remove_rrna', required=False, default=False,
-                   action='store_true', help='Remove rRNA (for mRNA datasets)')
-    p.add_argument('-u', '--remove_mmus', required=False, default=False,
+    p.add_argument('--rm_hsap', required=False, default=False,
+                   action='store_true', help='Remove H. sapiens genome')
+    p.add_argument('--rm_mmus', required=False, default=False,
                    action='store_true', help='Remove M. musculus genome')
+    p.add_argument('--rm_rrna', required=False, default=False,
+                   action='store_true', help='Remove rRNA (for mRNA datasets)')
     p.add_argument('-c', '--clean', required=False, default=False, action='store_true',
                    help='clean')
     p.add_argument('-k', '--keep_intermediate', required=False, default=False,
@@ -194,16 +197,18 @@ def quality_control(input_dir, merged, keep_intermediate):
 
 
 def screen_contaminating_dnas(input_dir, qc, bowtie2_indexes, keep_intermediate,
-                              remove_rrna=False, remove_mmus=False, nprocs_bowtie2=1):
+                              rm_hsap, rm_rrna, rm_mmus, nprocs_bowtie2=1):
     screened = dict()
-    cont_dnas = ['hg19', 'phiX174']
+    cont_dnas = ['phiX174']
 
-    if remove_rrna:
-        cont_dnas += ['SILVA_132_SSURef_Nr99_tax_silva',
-                      'SILVA_132_LSURef_tax_silva']
+    if rm_hsap:
+        cont_dnas += ['hg19']
 
-    if remove_mmus:
+    if rm_mmus:
         cont_dnas += ['mmusculus_black6_GCA_000001635_8']
+
+    if rm_rrna:
+        cont_dnas += ['SILVA_132_SSURef_Nr99_tax_silva', 'SILVA_132_LSURef_tax_silva']
 
     for folder, Rs in qc.iteritems():
         screened[folder] = tuple()
@@ -220,10 +225,9 @@ def screen_contaminating_dnas(input_dir, qc, bowtie2_indexes, keep_intermediate,
                 suffix = '_{}'.format(cont_dna.replace('_', '-').replace('.', '-'))
                 outf += suffix
 
-                cmd = 'bowtie2 -x {} -U {} -S {} -p {} --sensitive-local --un {}'
-                      .format(cont_dna, input_dir + folder + iR + Rext,
-                              input_dir + folder + outf + '.sam', nprocs_bowtie2,
-                              input_dir + folder + outf + '.fastq')
+                cmd = 'bowtie2 -x {} -U {} -S {} -p {} --sensitive-local --un {}'.format(
+                       cont_dna, input_dir + folder + iR + Rext, input_dir + folder + outf + '.sam',
+                       nprocs_bowtie2, input_dir + folder + outf + '.fastq')
                 DoitLoader.add_task([input_dir + folder + outf + '.fastq',
                                      input_dir + folder + outf + '.sam'],
                                     [input_dir + folder + iR + Rext],
@@ -284,9 +288,8 @@ def split_and_sort(input_dir, screened, keep_intermediate):
         if (out != R2[:R2.find('.')]) or (put != R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '')):
             error('split_and_sort() cannot finds common filename!\n    {}'.format('\n    '.join(['{} "{}"'.format(a, b) for a, b in zip(['R1', 'R2'], [out+put, R2[:R2.find('.')]+R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '')])])), exit=True)
 
-        cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'
-              .format(input_dir + folder + R1, input_dir + folder + R2,
-                      input_dir + folder + out + put)
+        cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(
+                input_dir + folder + R1, input_dir + folder + R2, input_dir + folder + out + put)
         DoitLoader.add_task([input_dir + folder + out + put + '_R1.fastq.bz2',
                              input_dir + folder + out + put + '_R2.fastq.bz2',
                              input_dir + folder + out + put + '_UN.fastq.bz2'],
@@ -338,8 +341,9 @@ if __name__ == "__main__":
 
     # bowtie2 remove contaminating DNAs
     screened = screen_contaminating_dnas(input_dir, qc, args.bowtie2_indexes,
-                                         args.keep_intermediate, args.remove_rrna,
-                                         args.remove_mmus, args.nprocs_bowtie2)
+                                         args.keep_intermediate,
+                                         args.rm_hsap, args.rm_rrna, args.rm_mmus,
+                                         args.nprocs_bowtie2)
     split_and_sort(input_dir, screened, args.keep_intermediate)
 
     if args.clean:
