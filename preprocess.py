@@ -226,13 +226,13 @@ def screen_contaminating_dnas(input_dir, qc, bowtie2_indexes, keep_intermediate,
                 outf += suffix
 
                 cmd = 'bowtie2 -x {} -U {} -S {} -p {} --sensitive-local --un {}'.format(
-                       cont_dna, input_dir + folder + iR + Rext, input_dir + folder + outf + '.sam',
+                       os.path.join(bowtie2_indexes, cont_dna), input_dir + folder + iR + Rext, input_dir + folder + outf + '.sam',
                        nprocs_bowtie2, input_dir + folder + outf + '.fastq')
                 DoitLoader.add_task([input_dir + folder + outf + '.fastq',
                                      input_dir + folder + outf + '.sam'],
                                     [input_dir + folder + iR + Rext],
-                                    [cmd, {'stdout': '/dev/null',
-                                           'env': {'BOWTIE2_INDEXES': bowtie2_indexes}}])
+                                    [cmd, {'stdout': '/dev/null'}])  #,
+                                           # 'env': {'BOWTIE2_INDEXES': bowtie2_indexes}}])
 
                 # info('bowtie2\n')
                 # info('     input: {}\n'.format(input_dir+folder+iR+Rext))
