@@ -82,7 +82,7 @@ def preflight_check(dry_run=False):
             with open(os.devnull, 'w') as devnull:
                 sb.check_call(cmd.split(' '), stdout=devnull, stderr=devnull)
         except Exception as e:
-            error('preflight_check():::{}\n{}'.format(cmd, e), exit=True)
+            error('preflight_check()\n{}\n{}'.format(cmd, e), exit=True)
 
 
 def get_inputs(input_dir, ext):
@@ -131,7 +131,10 @@ def concatenate_reads(input_dir, inputs_r1s_r2s, dry_run=False):
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                error('concatenate_reads():::{}\n{}'.format(cmd, e), exit=True)
+                if os.path.exists(outR1stats):
+                    os.remove(outR1stats)
+
+                error('concatenate_reads()\n{}\n{}'.format(cmd, e), exit=True)
 
     # R2 decompress
     if not os.path.isfile(outR2fastq):
@@ -161,7 +164,10 @@ def concatenate_reads(input_dir, inputs_r1s_r2s, dry_run=False):
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                error('concatenate_reads():::{}\n{}'.format(cmd, e), exit=True)
+                if os.path.exists(outR2stats):
+                    os.remove(outR2stats)
+
+                error('concatenate_reads()\n{}\n{}'.format(cmd, e), exit=True)
 
     return (os.path.basename(outR1fastq), os.path.basename(outR2fastq))
 
@@ -186,7 +192,10 @@ def quality_control(input_dir, merged_r1_r2, keep_intermediate, dry_run=False):
                     with open(os.devnull, 'w') as devnull:
                         sb.check_call(cmd.split(' '), stdout=devnull)
                 except Exception as e:
-                    error('quality_control():::{}\n{}'.format(cmd, e), exit=True)
+                    if os.path.exists('{}_trimmed.fq'.format(oR)):
+                        os.remove('{}_trimmed.fq'.format(oR))
+
+                    error('quality_control()\n{}\n{}'.format(cmd, e), exit=True)
 
         if not os.path.isfile('{}_trimmed.stats'.format(oR)):
             cmd = 'fna_len.py -q --stat {0}_trimmed.fq {0}_trimmed.stats'.format(os.path.join(input_dir, oR))
@@ -197,7 +206,10 @@ def quality_control(input_dir, merged_r1_r2, keep_intermediate, dry_run=False):
                 try:
                     sb.check_call(cmd.split(' '))
                 except Exception as e:
-                    error('concatenate_reads():::{}\n{}'.format(cmd, e), exit=True)
+                    if os.path.exists('{}_trimmed.stats'.format(oR)):
+                        os.remove('{}_trimmed.stats'.format(oR))
+
+                    error('concatenate_reads()\n{}\n{}'.format(cmd, e), exit=True)
 
         if not keep_intermediate:
             if os.path.isfile(R):
@@ -253,7 +265,11 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
                         with open(os.devnull, 'w') as devnull:
                             sb.check_call(cmd.split(' '), stdout=devnull, env={'BOWTIE2_INDEXES': bowtie2_indexes})
                     except Exception as e:
-                        error('quality_control():::{}\n{}'.format(cmd, e), exit=True)
+                        for i in '{0}.sam {0}.fastq'.format(os.path.join(input_dir, outf)).split(' '):
+                            if os.path.exists(i):
+                                os.reomve(i)
+
+                        error('quality_control()\n{}\n{}'.format(cmd, e), exit=True)
 
             if not os.path.isfile('{}.stats'.format(outf)):
                 cmd = 'fna_len.py -q --stat {0}.fastq {0}.stats'.format(os.path.join(input_dir, outf))
@@ -264,7 +280,10 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
                     try:
                         sb.check_call(cmd.split(' '))
                     except Exception as e:
-                        error('concatenate_reads():::{}\n{}'.format(cmd, e), exit=True)
+                        if os.path.exists('{}.stats'.format(outf)):
+                            os.remove('{}.stats'.format(outf))
+
+                        error('concatenate_reads()\n{}\n{}'.format(cmd, e), exit=True)
 
             if not keep_intermediate:
                 to_removes.append(iR + Rext)
@@ -295,7 +314,7 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
     put = R1[R1.rfind('R1'):R1.rfind('.')].replace('R1', '')
 
     if (out != R2[:R2.find('.')]) or (put != R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '')):
-        error('split_and_sort():::cannot finds common filename!\n    R1: {}\n    R2: {}\n   out: {}\n   put: {}'
+        error('split_and_sort() ::: cannot finds common filename!\n    R1: {}\n    R2: {}\n   out: {}\n   put: {}'
               .format(R1, R2, out, put), exit=True)
 
     if not (os.path.isfile(out + put + '_R1.fastq.bz2') and
@@ -311,7 +330,13 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                error('split_and_sort():::{}\n{}'.format(cmd, e), exit=True)
+                for i in [os.path.isfile(out + put + '_R1.fastq.bz2'),
+                          os.path.isfile(out + put + '_R2.fastq.bz2'),
+                          os.path.isfile(out + put + '_UN.fastq.bz2')]
+                    if os.path.exists(i):
+                        os.remove(i)
+
+                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
 
     if not os.path.isfile(out + put + '_R1.stats'):
         cmd = 'fna_len.py -q --stat {0}_R1.fastq.bz2 {0}_R1.stats'.format(os.path.join(input_dir, out + put))
@@ -322,7 +347,10 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                error('split_and_sort():::{}\n{}'.format(cmd, e), exit=True)
+                if os.path.exists(out + put + '_R1.stats'):
+                    os.remove(out + put + '_R1.stats')
+
+                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
 
     if not os.path.isfile(out + put + '_R2.stats'):
         cmd = 'fna_len.py -q --stat {0}_R2.fastq.bz2 {0}_R2.stats'.format(os.path.join(input_dir, out + put))
@@ -333,7 +361,10 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                error('split_and_sort():::{}\n{}'.format(cmd, e), exit=True)
+                if os.path.exists(out + put + '_R2.stats'):
+                    os.remove(out + put + '_R2.stats')
+
+                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
 
     if not os.path.isfile(out + put + '_UN.stats'):
         cmd = 'fna_len.py -q --stat {0}_UN.fastq.bz2 {0}_UN.stats'.format(os.path.join(input_dir, out + put))
@@ -344,7 +375,10 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                error('split_and_sort():::{}\n{}'.format(cmd, e), exit=True)
+                if os.path.exists(out + put + '_UN.stats'):
+                    os.remove(out + put + '_UN.stats')
+
+                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
 
     if not keep_intermediate:
         for R in screened_r1_r2:
@@ -363,7 +397,10 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                error('split_and_sort():::{}\n{}'.format(cmd, e), exit=True)
+                if os.path.exists(out + put + '_summary.stats'):
+                    os.remove(out + put + '_summary.stats')
+
+                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
 
 
 if __name__ == "__main__":
