@@ -332,7 +332,7 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
             except Exception as e:
                 for i in [os.path.isfile(out + put + '_R1.fastq.bz2'),
                           os.path.isfile(out + put + '_R2.fastq.bz2'),
-                          os.path.isfile(out + put + '_UN.fastq.bz2')]
+                          os.path.isfile(out + put + '_UN.fastq.bz2')]:
                     if os.path.exists(i):
                         os.remove(i)
 
