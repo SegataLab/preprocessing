@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1.2'
-__date__ = '26 Sep 2018'
+__version__ = '0.1.3'
+__date__ = '28 Sep 2018'
 
 
 import os
@@ -61,6 +61,8 @@ def read_params():
                    type=str, help="Folder containing the bowtie2 indexes of the genomes to be removed from the samples")
     p.add_argument('--dry_run', required=False, default=False, action='store_true', help="Print commands do not execute them")
     p.add_argument('--verbose', required=False, default=False, action='store_true', help="Makes preprocessing verbose")
+    p.add_argument('-v', '--version', action='version', version='Preprocessing version {} ({})'.format(__version__, __date__),
+                   help="Prints the current Preprocessing version and exit")
     return p.parse_args()
 
 
@@ -229,14 +231,7 @@ def quality_control_mp(x):
                 if not dry_run:
                     sb.check_call(cmd.split(' '))
 
-            if not keep_intermediate:
-                if os.path.isfile(R):
-                    if dry_run or verbose:
-                        info('rm {}\n'.format(R))
-
-                    if not dry_run:
-                        os.remove(R)
-
+            remove([R], keep_intermediate, folder=input_dir, dry_run=dry_run, verbose=verbose)
             return '{}_trimmed.fq'.format(oR)
         except Exception as e:
             terminating.set()
@@ -322,15 +317,7 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
 
         screened.append(final)
 
-    if to_removes:
-        for to_remove in to_removes:
-            if os.path.isfile(to_remove):
-                if dry_run or verbose:
-                    info('rm {}'.format(to_remove))
-
-                if not dry_run:
-                    os.remove(to_remove)
-
+    remove(to_removes, keep_intermediate, folder=input_dir, dry_run=dry_run, verbose=verbose)
     return tuple(screened)
 
 
@@ -397,14 +384,7 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
         except Exception as e:
             error('split_and_sort()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
 
-    if not keep_intermediate:
-        for R in screened_r1_r2:
-            if os.path.isfile(R):
-                if dry_run:
-                    info('rm {}\n'.format(R))
-                else:
-                    os.remove(R)
-
+    remove(screened_r1_r2, keep_intermediate, folder=input_dir, dry_run=dry_run, verbose=verbose)
     return (out + put + '_R1.fastq.bz2', out + put + '_R2.fastq.bz2', out + put + '_UN.fastq.bz2')
 
 
@@ -430,20 +410,30 @@ def split_and_sort_mp(x):
         terminating.set()
 
 
-def remove(to_remove, keep_intermediate, dry_run=False, verbose=False):
+def remove(to_remove, keep_intermediate, folder=None, dry_run=False, verbose=False):
+    if verbose:
+        info('remove()\n', init_new_line=True)
+
     if not args.keep_intermediate:
         for r in to_remove:
-            if os.path.isfile(r):
+            rf = os.path.join(folder, r) if folder else r
+
+            if os.path.isfile(rf):
                 if args.verbose:
-                    info('rm {}\n'.format(r))
+                    info('rm {}\n'.format(rf))
 
                 if not args.dry_run:
-                    os.remove(r)
+                    os.remove(rf)
 
 
 if __name__ == "__main__":
     t0 = time.time()
     args = read_params()
+
+    if args.verbose:
+        info('Preprocessing version {} ({})\n'.format(__version__, __date__))
+        info('Command line: {}\n'.format(' '.join(sys.argv)), init_new_line=True)
+
     check_params(args)
     preflight_check(dry_run=args.dry_run, verbose=args.verbose)
     inputs_r1s_r2s = get_inputs(args.input_dir, args.extension, verbose=args.verbose)
@@ -460,7 +450,7 @@ if __name__ == "__main__":
 
     qced_r1_r2 = quality_control(args.input_dir, merged_r1_r2, args.keep_intermediate,
                                  nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
-    remove(merged_r1_r2, args.keep_intermediate, dry_run=args.dry_run, verbose=args.verbose)
+    remove(merged_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
 
     if args.dry_run or args.verbose:
         info('qced_r1: {}\n'.format(qced_r1_r2[0]), init_new_line=True)
@@ -470,7 +460,7 @@ if __name__ == "__main__":
                                                args.rm_hsap, args.rm_rrna, args.rm_mmus,
                                                nprocs_bowtie2=args.nproc_bowtie2 if args.nproc_bowtie2 > args.nproc else args.nproc,
                                                dry_run=args.dry_run, verbose=args.verbose)
-    remove(qced_r1_r2, args.keep_intermediate, dry_run=args.dry_run, verbose=args.verbose)
+    remove(qced_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
 
     if args.dry_run or args.verbose:
         info('screened_r1: {}\n'.format(screened_r1_r2[0]), init_new_line=True)
@@ -478,7 +468,7 @@ if __name__ == "__main__":
 
     splitted_and_sorted = split_and_sort(args.input_dir, screened_r1_r2, args.keep_intermediate,
                                          nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
-    remove(screened_r1_r2, args.keep_intermediate, dry_run=args.dry_run, verbose=args.verbose)
+    remove(screened_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
 
     if args.dry_run or args.verbose:
         info('splitted_and_sorted: {}\n'.format(splitted_and_sorted[0]), init_new_line=True)
