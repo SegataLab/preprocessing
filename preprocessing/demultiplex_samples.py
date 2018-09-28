@@ -99,8 +99,8 @@ def demultiplex(input_folder, output_folder, mapping):
     for fld in glob.iglob(os.path.join(input_folder, '*')):
         new_name = None
 
-        for k, v in mapping.items():
-            if ('_'.join(k) in fld) or ('_'.join(k[::-1]) in fld):
+        for (i1, i2), v in mapping.items():
+            if (i1 in fld) and (i2 in fld):
                 new_name = v
                 break
 
