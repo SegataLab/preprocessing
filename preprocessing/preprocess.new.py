@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1'
-__date__ = '21 Sep 2018'
+__version__ = '0.1.2'
+__date__ = '26 Sep 2018'
 
 
 import os
@@ -13,6 +13,8 @@ import glob
 import gzip
 import argparse
 import subprocess as sb
+import multiprocessing as mp
+import time
 
 
 def info(s, init_new_line=False, exit=False, exit_value=0):
@@ -41,10 +43,12 @@ def read_params():
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     p.add_argument('-i', '--input_dir', required=True, type=str, help="Path to input directory")
-    p.add_argument('-e', '--extension', required=False, default=".fastq.gz", type=str, help="The extension of the raw input files")
+    p.add_argument('-e', '--extension', required=False, default=".fastq.gz", choices=[".fastq.gz", ".fastq.bz2"],
+                   help="The extension of the raw input files")
 
     procs = p.add_argument_group("Params for the number of processors to use")
-    procs.add_argument('-b', '--nprocs_bowtie2', required=False, default=1, type=int, help="Number of bowtie2 processors")
+    procs.add_argument('-n', '--nproc', required=False, default=2, type=int, help="Number of threads to use")
+    procs.add_argument('-b', '--nproc_bowtie2', required=False, default=2, type=int, help="Number of bowtie2 processors")
 
     rm = p.add_argument_group('Params for what contaminats should be removed')
     rm.add_argument('--rm_hsap', required=False, default=False, action='store_true', help="Remove H. sapiens genome")
@@ -56,6 +60,7 @@ def read_params():
     p.add_argument('-x', '--bowtie2_indexes', required=False, default='/shares/CIBIO-Storage/CM/mir/databases/bowtie2_indexes',
                    type=str, help="Folder containing the bowtie2 indexes of the genomes to be removed from the samples")
     p.add_argument('--dry_run', required=False, default=False, action='store_true', help="Print commands do not execute them")
+    p.add_argument('--verbose', required=False, default=False, action='store_true', help="Makes preprocessing verbose")
     return p.parse_args()
 
 
@@ -67,15 +72,27 @@ def check_params(args):
         args.input_dir = args.input_dir[:-1]
 
 
-def preflight_check(dry_run=False):
-    if dry_run:
+def initt(terminating_):
+    # This places terminating in the global namespace of the worker subprocesses.
+    # This allows the worker function to access `terminating` even though it is
+    # not passed as an argument to the function.
+    global terminating
+    terminating = terminating_
+
+
+def preflight_check(dry_run=False, verbose=False):
+    if dry_run or verbose:
         info('preflight_check()\n', init_new_line=True)
 
-    cmds = ['zcat -h', 'fna_len.py -h', 'trim_galore -h', 'bowtie2 -h', 'split_and_sort.py -h', 'cat_stats.py -h']
+    cmds = ['zcat -h', 'fna_len.py -h', 'trim_galore -h', 'bowtie2 -h',
+            'split_and_sort.new.py -h',  # 'split_and_sort.py -h',
+            'cat_stats.py -h']
 
     for cmd in cmds:
-        if dry_run:
+        if dry_run or verbose:
             info('{}\n'.format(cmd))
+
+        if dry_run:
             continue
 
         try:
@@ -85,15 +102,18 @@ def preflight_check(dry_run=False):
             error('preflight_check()\n{}\n{}'.format(cmd, e), exit=True)
 
 
-def get_inputs(input_dir, ext):
+def get_inputs(input_dir, ext, verbose=False):
+    if verbose:
+        info('get_inputs()\n', init_new_line=True)
+
     R1 = sorted(glob.glob(os.path.join(input_dir, '*R1*{}'.format(ext))))
     R2 = sorted(glob.glob(os.path.join(input_dir, '*R2*{}'.format(ext))))
 
     return (R1, R2)
 
 
-def concatenate_reads(input_dir, inputs_r1s_r2s, dry_run=False):
-    if dry_run:
+def concatenate_reads(input_dir, inputs_r1s_r2s, nproc=1, dry_run=False, verbose=False):
+    if dry_run or verbose:
         info('concatenate_reads()\n', init_new_line=True)
 
     out_prefix = os.path.basename(input_dir)
@@ -102,130 +122,138 @@ def concatenate_reads(input_dir, inputs_r1s_r2s, dry_run=False):
     outR2fastq = '{}.R2.fastq'.format(os.path.join(input_dir, out_prefix))
     outR1stats = '{}.R1.stats'.format(os.path.join(input_dir, out_prefix))
     outR2stats = '{}.R2.stats'.format(os.path.join(input_dir, out_prefix))
+    tasks = [(R1s, outR1fastq, outR1stats, dry_run, verbose),
+             (R2s, outR2fastq, outR2stats, dry_run, verbose)]
+    terminating = mp.Event()
 
-    # R1 decompress
-    if not os.path.isfile(outR1fastq):
-        if dry_run:
-            info('{} > {}\n'.format(' '.join(R1s), outR1fastq))
-        else:
-            g = open(outR1fastq, 'w')
+    with mp.Pool(initializer=initt, initargs=(terminating,), processes=nproc) as pool:
+        try:
+            fastqs = [a for a in pool.imap_unordered(concatenate_reads_mp, tasks, chunksize=1)]
+        except Exception as e:
+            error('concatenate_reads()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
 
-            for inpR in R1s:
-                # decompress input file
-                if inpR.endswith('.bz2'):
-                    with bz2.open(inpR, 'rt') as f:
-                        g.write(f.read())
-                elif inpR.endswith('.gz'):
-                    with gzip.open(inpR, 'rt') as f:
-                        g.write(f.read())
-
-            g.close()
-
-    # R1 stats
-    if not os.path.isfile(outR1stats):
-        cmd = 'fna_len.py -q --stat {} {}'.format(outR1fastq, outR1stats)
-
-        if dry_run:
-            info('{}\n'.format(cmd))
-        else:
-            try:
-                sb.check_call(cmd.split(' '))
-            except Exception as e:
-                if os.path.exists(outR1stats):
-                    os.remove(outR1stats)
-
-                error('concatenate_reads()\n{}\n{}'.format(cmd, e), exit=True)
-
-    # R2 decompress
-    if not os.path.isfile(outR2fastq):
-        if dry_run:
-            info('{} > {}\n'.format(' '.join(R2s), outR2fastq))
-        else:
-            g = open(outR2fastq, 'w')
-
-            for inpR in R2s:
-                # decompress input file
-                if inpR.endswith('.bz2'):
-                    with bz2.open(inpR, 'rt') as f:
-                        g.write(f.read())
-                elif inpR.endswith('.gz'):
-                    with gzip.open(inpR, 'rt') as f:
-                        g.write(f.read())
-
-            g.close()
-
-    # R2 stats
-    if not os.path.isfile(outR2stats):
-        cmd = 'fna_len.py -q --stat {} {}'.format(outR2fastq, outR2stats)
-
-        if dry_run:
-            info('{}\n'.format(cmd))
-        else:
-            try:
-                sb.check_call(cmd.split(' '))
-            except Exception as e:
-                if os.path.exists(outR2stats):
-                    os.remove(outR2stats)
-
-                error('concatenate_reads()\n{}\n{}'.format(cmd, e), exit=True)
-
-    return (os.path.basename(outR1fastq), os.path.basename(outR2fastq))
+    return tuple(fastqs)
 
 
-def quality_control(input_dir, merged_r1_r2, keep_intermediate, dry_run=False):
-    if dry_run:
+def concatenate_reads_mp(x):
+    if not terminating.is_set():
+        try:
+            inps, out_fastq, out_stats, dry_run, verbose = x
+
+            # decompress
+            if not os.path.isfile(out_fastq):
+                if dry_run or verbose:
+                    info('cat {} > {}\n'.format(' '.join(inps), out_fastq))
+
+                if not dry_run:
+                    g = open(out_fastq, 'w')
+
+                    for inpR in inps:
+                        # decompress input file
+                        if inpR.endswith('.bz2'):
+                            with bz2.open(inpR, 'rt') as f:
+                                g.write(f.read())
+                        elif inpR.endswith('.gz'):
+                            with gzip.open(inpR, 'rt') as f:
+                                g.write(f.read())
+
+                    g.close()
+
+            # stats
+            if not os.path.isfile(out_stats):
+                cmd = 'fna_len.py -q --stat {} {}'.format(out_fastq, out_stats)
+
+                if dry_run or verbose:
+                    info('{}\n'.format(cmd))
+
+                if not dry_run:
+                    sb.check_call(cmd.split(' '))
+
+            return os.path.basename(out_fastq)
+        except Exception as e:
+            terminating.set()
+
+            for i in [out_fastq, out_stats]:
+                if os.path.exists(i):
+                    os.remove(i)
+
+            error('concatenate_reads_mp()\n    x: {}\n    e: {}'.format(x, e), init_new_line=True)
+            raise
+    else:
+        terminating.set()
+
+
+def quality_control(input_dir, merged_r1_r2, keep_intermediate, nproc=1, dry_run=False, verbose=False):
+    if dry_run or verbose:
         info('quality_control()\n', init_new_line=True)
 
-    qc = []
+    tasks = zip(merged_r1_r2, [input_dir] * len(merged_r1_r2),
+                [keep_intermediate] * len(merged_r1_r2),
+                [dry_run] * len(merged_r1_r2),
+                [verbose] * len(merged_r1_r2))
+    terminating = mp.Event()
 
-    for R in merged_r1_r2:
-        oR = R[:R.rfind('.')]
-
-        if not os.path.isfile('{}_trimmed.fq'.format(oR)):
-            cmd = ('trim_galore --nextera --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n --dont_gzip '
-                   '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
-
-            if dry_run:
-                info('{}\n'.format(cmd))
-            else:
-                try:
-                    with open(os.devnull, 'w') as devnull:
-                        sb.check_call(cmd.split(' '), stdout=devnull)
-                except Exception as e:
-                    if os.path.exists('{}_trimmed.fq'.format(oR)):
-                        os.remove('{}_trimmed.fq'.format(oR))
-
-                    error('quality_control()\n{}\n{}'.format(cmd, e), exit=True)
-
-        if not os.path.isfile('{}_trimmed.stats'.format(oR)):
-            cmd = 'fna_len.py -q --stat {0}_trimmed.fq {0}_trimmed.stats'.format(os.path.join(input_dir, oR))
-
-            if dry_run:
-                info('{}\n'.format(cmd))
-            else:
-                try:
-                    sb.check_call(cmd.split(' '))
-                except Exception as e:
-                    if os.path.exists('{}_trimmed.stats'.format(oR)):
-                        os.remove('{}_trimmed.stats'.format(oR))
-
-                    error('concatenate_reads()\n{}\n{}'.format(cmd, e), exit=True)
-
-        if not keep_intermediate:
-            if os.path.isfile(R):
-                if dry_run:
-                    info('rm {}\n'.format(R))
-                else:
-                    os.remove(R)
-
-        qc.append('{}_trimmed.fq'.format(oR))
+    with mp.Pool(initializer=initt, initargs=(terminating,), processes=nproc) as pool:
+        try:
+            qc = [a for a in pool.imap_unordered(quality_control_mp, tasks, chunksize=1)]
+        except Exception as e:
+            error('quality_control()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
 
     return tuple(qc)
 
 
+def quality_control_mp(x):
+    if not terminating.is_set():
+        try:
+            R, input_dir, keep_intermediate, dry_run, verbose = x
+
+            oR = R[:R.rfind('.')]
+
+            if not os.path.isfile('{}_trimmed.fq'.format(os.path.join(input_dir, oR))):
+                cmd = ('trim_galore --nextera --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n --dont_gzip '
+                       '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
+
+                if dry_run or verbose:
+                    info('{}\n'.format(cmd))
+
+                if not dry_run:
+                    with open(os.devnull, 'w') as devnull:
+                        sb.check_call(cmd.split(' '), stdout=devnull)
+
+            if not os.path.isfile('{}_trimmed.stats'.format(os.path.join(input_dir, oR))):
+                cmd = 'fna_len.py -q --stat {0}_trimmed.fq {0}_trimmed.stats'.format(os.path.join(input_dir, oR))
+
+                if dry_run or verbose:
+                    info('{}\n'.format(cmd))
+
+                if not dry_run:
+                    sb.check_call(cmd.split(' '))
+
+            if not keep_intermediate:
+                if os.path.isfile(R):
+                    if dry_run or verbose:
+                        info('rm {}\n'.format(R))
+
+                    if not dry_run:
+                        os.remove(R)
+
+            return '{}_trimmed.fq'.format(oR)
+        except Exception as e:
+            terminating.set()
+
+            for i in ['{}_trimmed.fq'.format(os.path.join(input_dir, oR)), '{}_trimmed.stats'.format(os.path.join(input_dir, oR))]:
+                if os.path.exists(i):
+                    os.remove(i)
+
+            error('quality_control_mp()\n    x: {}\n    e: {}'.format(x, e), init_new_line=True)
+            raise
+    else:
+        terminating.set()
+
+
 def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_intermediate, rm_hsap, rm_rrna, rm_mmus,
-                              nprocs_bowtie2=1, dry_run=False):
-    if dry_run:
+                              nprocs_bowtie2=1, dry_run=False, verbose=False):
+    if dry_run or verbose:
         info('screen_contaminating_dnas()\n', init_new_line=True)
 
     screened = []
@@ -251,32 +279,33 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
             suffix = '_{}'.format(cont_dna.replace('_', '-').replace('.', '-'))
             outf += suffix
 
-            if not os.path.isfile('{}.fastq'.format(outf)):
-                cmd = 'bowtie2 -x {} -U {} -S {}.sam -p {} --sensitive-local --un {}.fastq'.format(cont_dna,
-                                                                                                   os.path.join(input_dir, iR + Rext),
-                                                                                                   os.path.join(input_dir, outf),
-                                                                                                   nprocs_bowtie2,
-                                                                                                   os.path.join(input_dir, outf))
+            if not os.path.isfile('{}.fastq'.format(os.path.join(input_dir, outf))):
+                cmd = ('bowtie2 -x {} -U {} -p {} --sensitive-local --un {}.fastq'
+                       .format(os.path.join(bowtie2_indexes, cont_dna),
+                               os.path.join(input_dir, iR + Rext),
+                               nprocs_bowtie2,
+                               os.path.join(input_dir, outf)))
 
-                if dry_run:
+                if dry_run or verbose:
                     info('{}\n'.format(cmd))
-                else:
+
+                if not dry_run:
                     try:
                         with open(os.devnull, 'w') as devnull:
-                            sb.check_call(cmd.split(' '), stdout=devnull, env={'BOWTIE2_INDEXES': bowtie2_indexes})
+                            sb.check_call(cmd.split(' '), stdout=devnull, stderr=devnull)
                     except Exception as e:
-                        for i in '{0}.sam {0}.fastq'.format(os.path.join(input_dir, outf)).split(' '):
-                            if os.path.exists(i):
-                                os.reomve(i)
+                        if os.path.exists('{0}.fastq'.format(os.path.join(input_dir, outf))):
+                            os.remove('{0}.fastq'.format(os.path.join(input_dir, outf)))
 
-                        error('quality_control()\n{}\n{}'.format(cmd, e), exit=True)
+                        error('screen_contaminating_dnas()\n{}\n{}'.format(cmd, e), exit=True)
 
-            if not os.path.isfile('{}.stats'.format(outf)):
+            if not os.path.isfile('{}.stats'.format(os.path.join(input_dir, outf))):
                 cmd = 'fna_len.py -q --stat {0}.fastq {0}.stats'.format(os.path.join(input_dir, outf))
 
-                if dry_run:
+                if dry_run or verbose:
                     info('{}\n'.format(cmd))
-                else:
+
+                if not dry_run:
                     try:
                         sb.check_call(cmd.split(' '))
                     except Exception as e:
@@ -287,7 +316,6 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
 
             if not keep_intermediate:
                 to_removes.append(iR + Rext)
-                to_removes.append('{}.sam'.format(outf))
 
             Rext = '.fastq'
             final = outf + '.fastq'
@@ -297,16 +325,17 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
     if to_removes:
         for to_remove in to_removes:
             if os.path.isfile(to_remove):
-                if dry_run:
+                if dry_run or verbose:
                     info('rm {}'.format(to_remove))
-                else:
+
+                if not dry_run:
                     os.remove(to_remove)
 
     return tuple(screened)
 
 
-def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
-    if dry_run:
+def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_run=False, verbose=False):
+    if dry_run or verbose:
         info('split_and_sort()\n', init_new_line=True)
 
     R1, R2 = screened_r1_r2
@@ -320,13 +349,17 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
     if not (os.path.isfile(out + put + '_R1.fastq.bz2') and
             os.path.isfile(out + put + '_R2.fastq.bz2') and
             os.path.isfile(out + put + '_UN.fastq.bz2')):
-        cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(os.path.join(input_dir, R1),
-                                                                     os.path.join(input_dir, R2),
-                                                                     os.path.join(input_dir, out + put))
+        # cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(os.path.join(input_dir, R1),
+        #                                                              os.path.join(input_dir, R2),
+        #                                                              os.path.join(input_dir, out + put))
+        cmd = 'split_and_sort.new.py --R1 {} --R2 {} --prefix {}'.format(os.path.join(input_dir, R1),
+                                                                         os.path.join(input_dir, R2),
+                                                                         os.path.join(input_dir, out + put))
 
-        if dry_run:
+        if dry_run or verbose:
             info('{}\n'.format(cmd))
-        else:
+
+        if not dry_run:
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
@@ -338,47 +371,31 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
 
                 error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
 
+    tasks = []
+
     if not os.path.isfile(out + put + '_R1.stats'):
-        cmd = 'fna_len.py -q --stat {0}_R1.fastq.bz2 {0}_R1.stats'.format(os.path.join(input_dir, out + put))
-
-        if dry_run:
-            info('{}\n'.format(cmd))
-        else:
-            try:
-                sb.check_call(cmd.split(' '))
-            except Exception as e:
-                if os.path.exists(out + put + '_R1.stats'):
-                    os.remove(out + put + '_R1.stats')
-
-                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
+        tasks.append(('fna_len.py -q --stat {0}_R1.fastq.bz2 {0}_R1.stats'.format(os.path.join(input_dir, out + put)),
+                      '{0}_R1.stats'.format(os.path.join(input_dir, out + put)), dry_run, verbose))
 
     if not os.path.isfile(out + put + '_R2.stats'):
-        cmd = 'fna_len.py -q --stat {0}_R2.fastq.bz2 {0}_R2.stats'.format(os.path.join(input_dir, out + put))
-
-        if dry_run:
-            info('{}\n'.format(cmd))
-        else:
-            try:
-                sb.check_call(cmd.split(' '))
-            except Exception as e:
-                if os.path.exists(out + put + '_R2.stats'):
-                    os.remove(out + put + '_R2.stats')
-
-                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
+        tasks.append(('fna_len.py -q --stat {0}_R2.fastq.bz2 {0}_R2.stats'.format(os.path.join(input_dir, out + put)),
+                      '{0}_R2.stats'.format(os.path.join(input_dir, out + put)), dry_run, verbose))
 
     if not os.path.isfile(out + put + '_UN.stats'):
-        cmd = 'fna_len.py -q --stat {0}_UN.fastq.bz2 {0}_UN.stats'.format(os.path.join(input_dir, out + put))
+        tasks.append(('fna_len.py -q --stat {0}_UN.fastq.bz2 {0}_UN.stats'.format(os.path.join(input_dir, out + put)),
+                      '{0}_UN.stats'.format(os.path.join(input_dir, out + put)), dry_run, verbose))
 
-        if dry_run:
-            info('{}\n'.format(cmd))
-        else:
-            try:
-                sb.check_call(cmd.split(' '))
-            except Exception as e:
-                if os.path.exists(out + put + '_UN.stats'):
-                    os.remove(out + put + '_UN.stats')
+    if not os.path.isfile(out + put + '_summary.stats'):
+        tasks.append(('cat_stats.py -i {} -o {}'.format(input_dir, os.path.join(input_dir, out + put + '_summary.stats')),
+                      out + put + '_summary.stats', dry_run, verbose))
 
-                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
+    terminating = mp.Event()
+
+    with mp.Pool(initializer=initt, initargs=(terminating,), processes=nproc) as pool:
+        try:
+            [_ for _ in pool.imap_unordered(split_and_sort_mp, tasks, chunksize=1)]
+        except Exception as e:
+            error('split_and_sort()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
 
     if not keep_intermediate:
         for R in screened_r1_r2:
@@ -388,50 +405,87 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, dry_run=False):
                 else:
                     os.remove(R)
 
-    if not os.path.isfile(out + put + '_summary.stats'):
-        cmd = 'cat_stats.py -i {} -o {}'.format(input_dir, os.path.join(input_dir, out + put + '_summary.stats'))
+    return (out + put + '_R1.fastq.bz2', out + put + '_R2.fastq.bz2', out + put + '_UN.fastq.bz2')
 
-        if dry_run:
-            info('{}\n'.format(cmd))
-        else:
-            try:
+
+def split_and_sort_mp(x):
+    if not terminating.is_set():
+        try:
+            cmd, output, dry_run, verbose = x
+
+            if dry_run or verbose:
+                info('{}\n'.format(cmd))
+
+            if not dry_run:
                 sb.check_call(cmd.split(' '))
-            except Exception as e:
-                if os.path.exists(out + put + '_summary.stats'):
-                    os.remove(out + put + '_summary.stats')
+        except Exception as e:
+            terminating.set()
 
-                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
+            if os.path.exists(output):
+                os.remove(output)
+
+            error('split_and_sort_mp()\n    x: {}\n    e: {}'.format(x, e), init_new_line=True)
+            raise
+    else:
+        terminating.set()
+
+
+def remove(to_remove, keep_intermediate, dry_run=False, verbose=False):
+    if not args.keep_intermediate:
+        for r in to_remove:
+            if os.path.isfile(r):
+                if args.verbose:
+                    info('rm {}\n'.format(r))
+
+                if not args.dry_run:
+                    os.remove(r)
 
 
 if __name__ == "__main__":
+    t0 = time.time()
     args = read_params()
     check_params(args)
+    preflight_check(dry_run=args.dry_run, verbose=args.verbose)
+    inputs_r1s_r2s = get_inputs(args.input_dir, args.extension, verbose=args.verbose)
 
-    preflight_check(dry_run=args.dry_run)  # check that all the needed software are available
+    if args.dry_run or args.verbose:
+        info('inputs_r1s: {}\n'.format('\n            '.join(inputs_r1s_r2s[0])), init_new_line=True)
+        info('inputs_r2s: {}\n'.format('\n            '.join(inputs_r1s_r2s[1])))
 
-    inputs_r1s_r2s = get_inputs(args.input_dir, args.extension)  # get input files
+    merged_r1_r2 = concatenate_reads(args.input_dir, inputs_r1s_r2s, nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
 
-    if args.dry_run:
-        info('inputs_r1s_r2s: {}\n'.format(inputs_r1s_r2s), init_new_line=True)
+    if args.dry_run or args.verbose:
+        info('merged_r1: {}\n'.format(merged_r1_r2[0]), init_new_line=True)
+        info('merged_r2: {}\n'.format(merged_r1_r2[1]))
 
-    merged_r1_r2 = concatenate_reads(args.input_dir, inputs_r1s_r2s, dry_run=args.dry_run)  # concatenate reads
+    qced_r1_r2 = quality_control(args.input_dir, merged_r1_r2, args.keep_intermediate,
+                                 nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
+    remove(merged_r1_r2, args.keep_intermediate, dry_run=args.dry_run, verbose=args.verbose)
 
-    if args.dry_run:
-        info('merged_r1_r2: {}\n'.format(merged_r1_r2))
+    if args.dry_run or args.verbose:
+        info('qced_r1: {}\n'.format(qced_r1_r2[0]), init_new_line=True)
+        info('qced_r2: {}\n'.format(qced_r1_r2[1]))
 
-    qced_r1_r2 = quality_control(args.input_dir, merged_r1_r2, args.keep_intermediate, dry_run=args.dry_run)  # quality control
-
-    if args.dry_run:
-        info('qced_r1_r2: {}\n'.format(qced_r1_r2))
-
-    # bowtie2 remove contaminating DNAs
     screened_r1_r2 = screen_contaminating_dnas(args.input_dir, qced_r1_r2, args.bowtie2_indexes, args.keep_intermediate,
                                                args.rm_hsap, args.rm_rrna, args.rm_mmus,
-                                               nprocs_bowtie2=args.nprocs_bowtie2, dry_run=args.dry_run)
+                                               nprocs_bowtie2=args.nproc_bowtie2 if args.nproc_bowtie2 > args.nproc else args.nproc,
+                                               dry_run=args.dry_run, verbose=args.verbose)
+    remove(qced_r1_r2, args.keep_intermediate, dry_run=args.dry_run, verbose=args.verbose)
 
-    if args.dry_run:
-        info('screened_r1_r2: {}\n'.format(screened_r1_r2))
+    if args.dry_run or args.verbose:
+        info('screened_r1: {}\n'.format(screened_r1_r2[0]), init_new_line=True)
+        info('screened_r2: {}\n'.format(screened_r1_r2[1]))
 
-    split_and_sort(args.input_dir, screened_r1_r2, args.keep_intermediate, dry_run=args.dry_run)
+    splitted_and_sorted = split_and_sort(args.input_dir, screened_r1_r2, args.keep_intermediate,
+                                         nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
+    remove(screened_r1_r2, args.keep_intermediate, dry_run=args.dry_run, verbose=args.verbose)
+
+    if args.dry_run or args.verbose:
+        info('splitted_and_sorted: {}\n'.format(splitted_and_sorted[0]), init_new_line=True)
+        info('                     {}\n'.format(splitted_and_sorted[1]))
+        info('                     {}\n'.format(splitted_and_sorted[2]))
+
+    if args.verbose:
+        info('time elapsed: {} s\n'.format(int(time.time() - t0)), init_new_line=True)
 
     sys.exit(0)
