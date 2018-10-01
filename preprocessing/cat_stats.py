@@ -60,19 +60,20 @@ def check_params(args):
         args.extension = '.' + args.extension
 
     if len(args.inp_sep) > 1:
-        error('input field-separator is more than one characther, "{}"'
-              .format(args.inp_sep), exit=True)
+        error('input field-separator is more than one characther, "{}"'.format(args.inp_sep), exit=True)
 
     if len(args.out_sep) > 1:
-        error('output field-separator is more than one characther, "{}"'
-              .format(args.out_sep), exit=True)
+        error('output field-separator is more than one characther, "{}"'.format(args.out_sep), exit=True)
 
 
-def cat(input_dir, ext, inp_sep):
+def cat(input_dir, ext, inp_sep, output_file):
     header = None
     data = []
 
     for stat_file in sorted(glob.glob(input_dir + '*' + ext)):
+        if os.path.basename(stat_file) == os.path.basename(output_file):  # should check not to include the output file
+            continue
+
         with open(stat_file) as f:
             for row in f:
                 if not header and row.startswith('#'):
@@ -132,6 +133,6 @@ def write_output_file(output_file, out_sep, data):
 if __name__ == "__main__":
     args = read_params()
     check_params(args)
-    data = summarize(cat(args.input_dir, args.extension, args.inp_sep))
+    data = summarize(cat(args.input_dir, args.extension, args.inp_sep, args.output_file))
     write_output_file(args.output_file, args.out_sep, data)
     sys.exit(0)

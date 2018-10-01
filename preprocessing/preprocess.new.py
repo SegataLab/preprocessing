@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1.3'
-__date__ = '28 Sep 2018'
+__version__ = '0.1.4'
+__date__ = '1 October 2018'
 
 
 import os
@@ -372,10 +372,6 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
         tasks.append(('fna_len.py -q --stat {0}_UN.fastq.bz2 {0}_UN.stats'.format(os.path.join(input_dir, out + put)),
                       '{0}_UN.stats'.format(os.path.join(input_dir, out + put)), dry_run, verbose))
 
-    if not os.path.isfile(out + put + '_summary.stats'):
-        tasks.append(('cat_stats.py -i {} -o {}'.format(input_dir, os.path.join(input_dir, out + put + '_summary.stats')),
-                      out + put + '_summary.stats', dry_run, verbose))
-
     terminating = mp.Event()
 
     with mp.Pool(initializer=initt, initargs=(terminating,), processes=nproc) as pool:
@@ -383,6 +379,21 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
             [_ for _ in pool.imap_unordered(split_and_sort_mp, tasks, chunksize=1)]
         except Exception as e:
             error('split_and_sort()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
+
+    if not os.path.isfile(out + put + '_summary.stats'):
+        cmd = 'cat_stats.py -i {} -o {}'.format(input_dir, os.path.join(input_dir, out + put + '_summary.stats'))
+
+        if dry_run or verbose:
+            info('{}\n'.format(cmd))
+
+        if not dry_run:
+            try:
+                sb.check_call(cmd.split(' '))
+            except Exception as e:
+                if os.path.exists(out + put + '_summary.stats'):
+                    os.remove(out + put + '_summary.stats')
+
+                error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
 
     remove(screened_r1_r2, keep_intermediate, folder=input_dir, dry_run=dry_run, verbose=verbose)
     return (out + put + '_R1.fastq.bz2', out + put + '_R2.fastq.bz2', out + put + '_UN.fastq.bz2')
