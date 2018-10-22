@@ -1,0 +1,48 @@
+{% set name = "preprocessing" %}
+{% set version = "0.1.8" %}
+{% set md5 = "5057fd3ab3fa47fba539a93bfbd0802b" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  md5: {{ md5 }}
+  url: https://bitbucket.org/CibioCM/preprocessing/get/{{ version }}.tar.gz
+
+build:
+  number: 0
+#  skip: True  # [not py27]
+
+requirements:
+  host:
+    - python
+    - setuptools
+    - bowtie2 >=2.0.0
+    - biopython
+    - trim-galore
+
+  run:
+    - python
+    - setuptools
+    - bowtie2 >=2.0.0
+    - biopython
+    - trim-galore
+
+test:
+  commands:
+    - preprocess.new.py -h
+    - split_and_sort.new.py -h
+    - cat_stats.py -h
+    - fna_len.py -h
+
+about:
+  home: https://bitbucket.org/CibioCM/preprocessing
+  license: MIT License
+  license_family: MIT
+  license_file: license.txt
+  summary: |
+    Preprocessing pipeline for cleaning metagenomes sequenced on Illumina HiSeq.
+    Steps are: (1) index trimming, low-quality discarding, and removing of short
+    reads; (2) host contaminants removal; (3) splitting and sorting of reads
+    into R1, R2, and UN sets of reads.
