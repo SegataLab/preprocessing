@@ -4,9 +4,46 @@
 from __future__ import with_statement
 import sys
 import argparse
-import utils
 from Bio import SeqIO
 import numpy as np
+import bz2
+import gzip
+
+
+def openr(fn, mode="r"):
+    if fn is None:
+        return sys.stdin
+
+    if fn.endswith(".bz2"):
+        if sys.version_info[0] < 3:
+            return bz2.BZ2File(fn)
+        else:
+            return bz2.open(fn, 'rt')
+    elif fn.endswith(".gz"):
+        if sys.version_info[0] < 3:
+            return None  # need to check if gzip is different in Python2
+        else:
+            return gzip.open(fn, 'rt')
+    else:
+        return open(fn, mode)
+
+
+def openw(fn):
+    if fn is None:
+        return sys.stdout
+
+    if fn.endswith(".bz2"):
+        if sys.version_info[0] < 3:
+            return bz2.BZ2File(fn, "w")
+        else:
+            return bz2.open(fn, 'wt')
+    elif fn.endswith(".gz"):
+        if sys.version_info[0] < 3:
+            return None  # need to check if gzip is different in Python2
+        else:
+            return gzip.open(fn, 'wt')
+    else:
+        return open(fn, "w")
 
 
 def read_params():
@@ -43,8 +80,8 @@ if __name__ == '__main__':
         samplename = 'stdin'
         samplename += '_fastq' if par['q'] else '_fasta'
 
-    with utils.openw(par['out_f']) as outf:
-        for r in SeqIO.parse(utils.openr(par['inp_f']), "fastq" if par['q'] else "fasta"):
+    with openw(par['out_f']) as outf:
+        for r in SeqIO.parse(openr(par['inp_f']), "fastq" if par['q'] else "fasta"):
             lenn = len(r.seq)
 
             if par['stat'] or par['total']:
