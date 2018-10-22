@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1.4'
-__date__ = '1 October 2018'
+__version__ = '0.1.5'
+__date__ = '22 October 2018'
 
 
 import os
