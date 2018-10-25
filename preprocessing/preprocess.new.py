@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1.8'
-__date__ = '22 October 2018'
+__version__ = '0.1.9'
+__date__ = '25 October 2018'
 
 
 import os
@@ -86,7 +86,7 @@ def preflight_check(dry_run=False, verbose=False):
     if dry_run or verbose:
         info('preflight_check()\n', init_new_line=True)
 
-    cmds = ['zcat -h', 'fna_len.py -h', 'trim_galore -h', 'bowtie2 -h',
+    cmds = ['zcat -h', 'fna_len.py -h', 'trim_galore --help', 'bowtie2 -h',
             'split_and_sort.new.py -h',  # 'split_and_sort.py -h',
             'cat_stats.py -h']
 
