@@ -1,6 +1,6 @@
 {% set name = "preprocessing" %}
-{% set version = "0.1.8" %}
-{% set md5 = "5057fd3ab3fa47fba539a93bfbd0802b" %}
+{% set version = "0.1.9" %}
+{% set md5 = "0c7c66952ef7f7002e3407119dd0905e" %}
 
 package:
   name: {{ name }}
