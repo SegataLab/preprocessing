@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1.9'
-__date__ = '25 October 2018'
+__version__ = '0.1.10'
+__date__ = '21 November 2018'
 
 
 import os
@@ -15,6 +15,12 @@ import argparse
 import subprocess as sb
 import multiprocessing as mp
 import time
+import shutil
+
+
+if sys.version_info[0] < 3:
+    raise Exception("Preprocessing requires Python 3, your current Python version is {}.{}.{}"
+                    .format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
 
 
 def info(s, init_new_line=False, exit=False, exit_value=0):
@@ -86,7 +92,7 @@ def preflight_check(dry_run=False, verbose=False):
     if dry_run or verbose:
         info('preflight_check()\n', init_new_line=True)
 
-    cmds = ['zcat -h', 'fna_len.py -h', 'trim_galore --help', 'bowtie2 -h',
+    cmds = ['fna_len.py -h', 'trim_galore --help', 'bowtie2 -h',
             'split_and_sort.new.py -h',  # 'split_and_sort.py -h',
             'cat_stats.py -h']
 
@@ -132,7 +138,7 @@ def concatenate_reads(input_dir, inputs_r1s_r2s, nproc=1, dry_run=False, verbose
         try:
             fastqs = [a for a in pool.imap_unordered(concatenate_reads_mp, tasks, chunksize=1)]
         except Exception as e:
-            error('concatenate_reads()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
+            error('concatenate_reads()\n    tasks: {}\n    e: {}'.format(tasks, str(e)), init_new_line=True, exit=True)
 
     return tuple(fastqs)
 
@@ -148,16 +154,18 @@ def concatenate_reads_mp(x):
                     info('cat {} > {}\n'.format(' '.join(inps), out_fastq))
 
                 if not dry_run:
-                    g = open(out_fastq, 'w')
+                    g = open(out_fastq, 'wb')
 
                     for inpR in inps:
                         # decompress input file
                         if inpR.endswith('.bz2'):
-                            with bz2.open(inpR, 'rt') as f:
-                                g.write(f.read())
+                            with bz2.open(inpR, 'rb') as f:
+                                # g.write(f.read())
+                                shutil.copyfileobj(f, g)
                         elif inpR.endswith('.gz'):
-                            with gzip.open(inpR, 'rt') as f:
-                                g.write(f.read())
+                            with gzip.open(inpR, 'rb') as f:
+                                # g.write(f.read())
+                                shutil.copyfileobj(f, g)
 
                     g.close()
 
@@ -179,7 +187,7 @@ def concatenate_reads_mp(x):
                 if os.path.exists(i):
                     os.remove(i)
 
-            error('concatenate_reads_mp()\n    x: {}\n    e: {}'.format(x, e), init_new_line=True)
+            error('concatenate_reads_mp()\n    x: {}\n    e: {}'.format(x, str(e)), init_new_line=True)
             raise
     else:
         terminating.set()
