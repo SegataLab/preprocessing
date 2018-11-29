@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1.10'
-__date__ = '21 November 2018'
+__version__ = '0.1.11'
+__date__ = '29 November 2018'
 
 
 import os
@@ -49,8 +49,12 @@ def read_params():
     p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     p.add_argument('-i', '--input_dir', required=True, type=str, help="Path to input directory")
-    p.add_argument('-e', '--extension', required=False, default=".fastq.gz", choices=[".fastq.gz", ".fastq.bz2"],
-                   help="The extension of the raw input files")
+    p.add_argument('-e', '--extension', required=False, default=".fastq.gz",
+                   choices=[".fastq.gz", ".fq.gz", ".fastq.bz2", ".fq.bz2"], help="The extension of the raw input files")
+    p.add_argument('-f', '--forward', required=False, default="R1",
+                   help="Identifier to distinguish forward reads in the input folder")
+    p.add_argument('-r', '--reverse', required=False, default="R2",
+                   help="Identifier to distinguish reverse reads in the input folder")
 
     procs = p.add_argument_group("Params for the number of processors to use")
     procs.add_argument('-n', '--nproc', required=False, default=2, type=int, help="Number of threads to use")
@@ -110,12 +114,12 @@ def preflight_check(dry_run=False, verbose=False):
             error('preflight_check()\n{}\n{}'.format(cmd, e), exit=True)
 
 
-def get_inputs(input_dir, ext, verbose=False):
+def get_inputs(input_dir, fwd, rev, ext, verbose=False):
     if verbose:
         info('get_inputs()\n', init_new_line=True)
 
-    R1 = sorted(glob.glob(os.path.join(input_dir, '*R1*{}'.format(ext))))
-    R2 = sorted(glob.glob(os.path.join(input_dir, '*R2*{}'.format(ext))))
+    R1 = sorted(glob.glob(os.path.join(input_dir, '*{}*{}'.format(fwd, ext))))
+    R2 = sorted(glob.glob(os.path.join(input_dir, '*{}*{}'.format(rev, ext))))
 
     return (R1, R2)
 
@@ -455,7 +459,7 @@ if __name__ == "__main__":
 
     check_params(args)
     preflight_check(dry_run=args.dry_run, verbose=args.verbose)
-    inputs_r1s_r2s = get_inputs(args.input_dir, args.extension, verbose=args.verbose)
+    inputs_r1s_r2s = get_inputs(args.input_dir, args.forward, args.reverse, args.extension, verbose=args.verbose)
 
     if args.dry_run or args.verbose:
         info('inputs_r1s: {}\n'.format('\n            '.join(inputs_r1s_r2s[0])), init_new_line=True)
