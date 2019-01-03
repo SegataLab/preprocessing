@@ -243,7 +243,7 @@ def quality_control_mp(x):
                 if not dry_run:
                     sb.check_call(cmd.split(' '))
 
-            remove([R], keep_intermediate, folder=input_dir, dry_run=dry_run, verbose=verbose)
+            # remove([R], keep_intermediate, folder=input_dir, dry_run=dry_run, verbose=verbose)
             return '{}_trimmed.fq'.format(oR)
         except Exception as e:
             terminating.set()
