@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.1.11'
-__date__ = '29 November 2018'
+__version__ = '0.2.1'
+__date__ = '6 January 2019'
 
 
 import os
@@ -339,9 +339,15 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
 
     R1, R2 = screened_r1_r2
     out = R1[:R1.find('.')]
-    put = R1[R1.rfind('R1'):R1.rfind('.')].replace('R1', '')
+    put = '_'.join(for a in
+                   [R1[R1.rfind('R1'):R1.rfind('.')].replace('R1', '').replace('trimmed', '').replace('phiX174', '').replace('hg19', '')
+                   if a])
+    outR2 = R2[:R2.find('.')]
+    putR2 = '_'.join(for a in
+                   [R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '').replace('trimmed', '').replace('phiX174', '').replace('hg19', '')
+                   if a])
 
-    if (out != R2[:R2.find('.')]) or (put != R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '')):
+    if (out != outR2) or (put != putR2):
         error('split_and_sort() ::: cannot finds common filename!\n    R1: {}\n    R2: {}\n   out: {}\n   put: {}'
               .format(R1, R2, out, put), exit=True)
 
