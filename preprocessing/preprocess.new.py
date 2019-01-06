@@ -339,13 +339,13 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
 
     R1, R2 = screened_r1_r2
     out = R1[:R1.find('.')]
-    put = '_'.join(for a in
-                   [R1[R1.rfind('R1'):R1.rfind('.')].replace('R1', '').replace('trimmed', '').replace('phiX174', '').replace('hg19', '')
-                   if a])
+    put = '_'.join([a for a in
+                    R1[R1.rfind('R1'):R1.rfind('.')].replace('R1', '').replace('trimmed', '').replace('phiX174', '').replace('hg19', '').split('_')
+                    if a])
     outR2 = R2[:R2.find('.')]
-    putR2 = '_'.join(for a in
-                   [R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '').replace('trimmed', '').replace('phiX174', '').replace('hg19', '')
-                   if a])
+    putR2 = '_'.join([a for a in
+                      R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '').replace('trimmed', '').replace('phiX174', '').replace('hg19', '').split('_')
+                      if a])
 
     if (out != outR2) or (put != putR2):
         error('split_and_sort() ::: cannot finds common filename!\n    R1: {}\n    R2: {}\n   out: {}\n   put: {}'
