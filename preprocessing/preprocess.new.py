@@ -2,7 +2,7 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.1'
+__version__ = '0.2.2'
 __date__ = '6 January 2019'
 
 
