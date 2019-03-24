@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.3'
-__date__ = '4 April 2018'
+__version__ = '0.4'
+__date__ = '24 March 2019'
 
 
 import sys
@@ -97,15 +97,19 @@ def read_mapping_file(map_file, sep, sn, i1, i2):
 
 def demultiplex(input_folder, output_folder, mapping):
     for fld in glob.iglob(os.path.join(input_folder, '*')):
+        if not os.path.isdir(fld):
+            continue
+
+        fld_name = os.path.basename(fld)
         new_name = None
 
         for (i1, i2), v in mapping.items():
-            if (i1 in fld) and (i2 in fld):
+            if (i1 in fld_name) and (i2 in fld_name):
                 new_name = v
                 break
 
         if not new_name:
-            error('skipping "{}", no indexes found in mapping'.format(fld))
+            # error('skipping "{}", no indexes found in mapping'.format(fld))
             continue
 
         output = os.path.join(output_folder, new_name)
