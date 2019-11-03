@@ -90,7 +90,7 @@ def read_mapping_file(map_file, sep, sn, i1, i2):
                       .format(row_clean[i1], row_clean[i2]), exit=True)
 
     if len(sample_names) != len(set(sample_names)):
-        error('There are duplicated sample names, check your mapping file', exit=True)
+        error('there are duplicated sample names, check your mapping file', exit=True)
 
     return mapp
 

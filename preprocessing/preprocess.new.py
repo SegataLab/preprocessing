@@ -213,7 +213,16 @@ def quality_control(input_dir, merged_r1_r2, keep_intermediate, nproc=1, dry_run
         except Exception as e:
             error('quality_control()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
 
-    return tuple(qc)
+    r1 = [i for i in qc if "R1" in i]
+    r2 = [i for i in qc if "R2" in i]
+
+    if len(r1) > 1:
+        error('quality_control(): more than one R1 detected: [{}]'.format(', '.join(r1)), exit=True)
+
+    if len(r2) > 1:
+        error('quality_control(): more than one R2 detected: [{}]'.format(', '.join(r2)), exit=True)
+
+    return tuple(r1[0], r2[0])
 
 
 def quality_control_mp(x):
@@ -226,6 +235,10 @@ def quality_control_mp(x):
             if not os.path.isfile('{}_trimmed.fq'.format(os.path.join(input_dir, oR))):
                 cmd = ('trim_galore --nextera --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n --dont_gzip '
                        '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
+
+                # command for Moreno, no --nextera
+                #cmd = ('trim_galore --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n --dont_gzip '
+                #       '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
 
                 if dry_run or verbose:
                     info('{}\n'.format(cmd))
