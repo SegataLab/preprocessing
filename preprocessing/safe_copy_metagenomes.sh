@@ -4,7 +4,7 @@
 # safely copying metagenomes to be preprocessed
 
 w='/shares/CIBIO-Storage/CM/tmp/fasnicar_preproc'  # working directory
-d='run24_pool2'  # name of folder in working directory
+d='run27_pool2'  # name of folder in working directory
 p='_pool2_'  # pool to be considered from the seq_internal folder
 
 # assumes to be inside the run folder in "/shares/CIBIO-Storage/CM/mir/seq_internal"
