@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.2'
-__date__ = '6 January 2019'
+__version__ = '0.2.3'
+__date__ = '11 November 2019'
 
 
 import os
@@ -222,7 +222,7 @@ def quality_control(input_dir, merged_r1_r2, keep_intermediate, nproc=1, dry_run
     if len(r2) > 1:
         error('quality_control(): more than one R2 detected: [{}]'.format(', '.join(r2)), exit=True)
 
-    return tuple(r1[0], r2[0])
+    return tuple([r1[0], r2[0]])
 
 
 def quality_control_mp(x):
