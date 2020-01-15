@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.3'
-__date__ = '11 November 2019'
+__version__ = '0.2.4'
+__date__ = '30 December 2019'
 
 
 import os
@@ -51,6 +51,8 @@ def read_params():
     p.add_argument('-i', '--input_dir', required=True, type=str, help="Path to input directory")
     p.add_argument('-e', '--extension', required=False, default=".fastq.gz",
                    choices=[".fastq.gz", ".fq.gz", ".fastq.bz2", ".fq.bz2"], help="The extension of the raw input files")
+    p.add_argument('-s', '--samplename', required=False, default="", help="Specify the sample name")
+
     p.add_argument('-f', '--forward', required=False, default="R1",
                    help="Identifier to distinguish forward reads in the input folder")
     p.add_argument('-r', '--reverse', required=False, default="R2",
@@ -114,12 +116,12 @@ def preflight_check(dry_run=False, verbose=False):
             error('preflight_check()\n{}\n{}'.format(cmd, e), exit=True)
 
 
-def get_inputs(input_dir, fwd, rev, ext, verbose=False):
+def get_inputs(input_dir, fwd, rev, sn, ext, verbose=False):
     if verbose:
         info('get_inputs()\n', init_new_line=True)
 
-    R1 = sorted(glob.glob(os.path.join(input_dir, '*{}*{}'.format(fwd, ext))))
-    R2 = sorted(glob.glob(os.path.join(input_dir, '*{}*{}'.format(rev, ext))))
+    R1 = sorted([os.path.join(input_dir, i) for i in os.listdir(input_dir) if (fwd in i.replace(sn, '')) and i.endswith(ext)])
+    R2 = sorted([os.path.join(input_dir, i) for i in os.listdir(input_dir) if (rev in i.replace(sn, '')) and i.endswith(ext)])
 
     return (R1, R2)
 
@@ -197,7 +199,7 @@ def concatenate_reads_mp(x):
         terminating.set()
 
 
-def quality_control(input_dir, merged_r1_r2, keep_intermediate, nproc=1, dry_run=False, verbose=False):
+def quality_control(input_dir, merged_r1_r2, keep_intermediate, sn, nproc=1, dry_run=False, verbose=False):
     if dry_run or verbose:
         info('quality_control()\n', init_new_line=True)
 
@@ -213,8 +215,8 @@ def quality_control(input_dir, merged_r1_r2, keep_intermediate, nproc=1, dry_run
         except Exception as e:
             error('quality_control()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
 
-    r1 = [i for i in qc if "R1" in i]
-    r2 = [i for i in qc if "R2" in i]
+    r1 = [i for i in qc if "R1" in i.replace(sn, '')]
+    r2 = [i for i in qc if "R2" in i.replace(sn, '')]
 
     if len(r1) > 1:
         error('quality_control(): more than one R1 detected: [{}]'.format(', '.join(r1)), exit=True)
@@ -478,7 +480,10 @@ if __name__ == "__main__":
 
     check_params(args)
     preflight_check(dry_run=args.dry_run, verbose=args.verbose)
-    inputs_r1s_r2s = get_inputs(args.input_dir, args.forward, args.reverse, args.extension, verbose=args.verbose)
+    inputs_r1s_r2s = get_inputs(args.input_dir, args.forward, args.reverse, args.samplename, args.extension, verbose=args.verbose)
+
+    if (len(inputs_r1s_r2s[0]) == 0) or (len(inputs_r1s_r2s[1]) == 0):
+        error('No input files detected!\nR1s: {}\nR2s: {}'.format(inputs_r1s_r2s[0], inputs_r1s_r2s[1]), exit=True)
 
     if args.dry_run or args.verbose:
         info('inputs_r1s: {}\n'.format('\n            '.join(inputs_r1s_r2s[0])), init_new_line=True)
@@ -490,7 +495,7 @@ if __name__ == "__main__":
         info('merged_r1: {}\n'.format(merged_r1_r2[0]), init_new_line=True)
         info('merged_r2: {}\n'.format(merged_r1_r2[1]))
 
-    qced_r1_r2 = quality_control(args.input_dir, merged_r1_r2, args.keep_intermediate,
+    qced_r1_r2 = quality_control(args.input_dir, merged_r1_r2, args.keep_intermediate, args.samplename,
                                  nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
     remove(merged_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
 
