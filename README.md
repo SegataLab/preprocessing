@@ -1,3 +1,10 @@
+## How to install it
+
+```
+conda install preprocessing -c fasnicar
+```
+
+
 ## How to use it
 
 Example command line:
@@ -10,6 +17,7 @@ where:
 
 - `preprocess.sh` takes one parameter which is the input folder containing the raw reads
 - input folder should contains the raw reads
+
 
 ## Building conda package
 
