@@ -1,18 +1,14 @@
 {% set name = "preprocessing" %}
-{% set version = "0.2.2" %}
-{% set md5 = "428dc91a60198fbc11962d53636e29be" %}
+{% set version = "0.2.4" %}
+{% set sha256 = "366ad5245bf65b31c5904e2c92c8580e53fa21eb4c7e98e8fbc3b801682412f2" %}
 
 package:
-  name: {{ name }}
-  version: {{ version }}
+  name: "{{ name }}"
+  version: "{{ version }}"
 
 source:
-  md5: {{ md5 }}
-  url: https://bitbucket.org/CibioCM/preprocessing/get/{{ version }}.tar.gz
-
-build:
-  number: 0
-#  skip: True  # [not py27]
+  url: https://github.com/SegataLab/preprocessing/archive/{{ version }}.tar.gz
+  sha256: "{{ sha256 }}"
 
 requirements:
   host:
@@ -21,7 +17,6 @@ requirements:
     - bowtie2 >=2.0.0
     - biopython
     - trim-galore
-
   run:
     - python
     - setuptools
@@ -37,7 +32,7 @@ test:
     - fna_len.py -h
 
 about:
-  home: https://bitbucket.org/CibioCM/preprocessing
+  home: https://github.com/SegataLab/preprocessing
   license: MIT License
   license_family: MIT
   license_file: license.txt
