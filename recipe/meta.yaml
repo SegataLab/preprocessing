@@ -10,6 +10,9 @@ source:
   url: https://github.com/SegataLab/preprocessing/archive/{{ version }}.tar.gz
   sha256: "{{ sha256 }}"
 
+build:
+  noarch: python
+
 requirements:
   host:
     - python
