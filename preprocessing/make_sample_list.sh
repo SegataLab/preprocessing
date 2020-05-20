@@ -1,4 +1,4 @@
-#! /bin/bash
+#!/bin/bash
 
 
 if [ $# -ne 2 ]; then
@@ -8,12 +8,12 @@ if [ $# -ne 2 ]; then
     exit 1;
 fi;
 
-if [ "$1" == "" ]; then
+if [[ -z $1 ]]; then
     echo "Output file parameter is empty";
     exit 1;
 fi;
 
-if [ "$2" == "" ]; then
+if [[ -z $2 ]]; then
     echo "Input folder parameter is empty";
     exit 1;
 fi;
