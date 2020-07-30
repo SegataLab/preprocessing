@@ -516,6 +516,7 @@ if __name__ == "__main__":
     splitted_and_sorted = split_and_sort(args.input_dir, screened_r1_r2, args.keep_intermediate,
                                          nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
     remove(screened_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
+    remove([f for f in os.listdir(args.input_dir) if f.endswith('.stats') and ('_summary.stats' not in f)], args.keep_intermediate, folder=args.input_dir, dry_run=True, verbose=args.verbose)
 
     if args.dry_run or args.verbose:
         info('splitted_and_sorted: {}\n'.format(splitted_and_sorted[0]), init_new_line=True)
