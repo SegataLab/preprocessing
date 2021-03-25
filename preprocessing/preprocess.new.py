@@ -69,7 +69,7 @@ def read_params():
 
     p.add_argument('-k', '--keep_intermediate', required=False, default=False, action='store_true',
                    help="If specified the script won't remove intermediate files")
-    p.add_argument('-x', '--bowtie2_indexes', required=False, default='/shares/CIBIO-Storage/CM/news/databases/bowtie2_indexes',
+    p.add_argument('-x', '--bowtie2_indexes', required=False, default='/shares/CIBIO-Storage/CM/scratch/databases/bowtie2_indexes',
                    type=str, help="Folder containing the bowtie2 indexes of the genomes to be removed from the samples")
     p.add_argument('--dry_run', required=False, default=False, action='store_true', help="Print commands do not execute them")
     p.add_argument('--verbose', required=False, default=False, action='store_true', help="Makes preprocessing verbose")
