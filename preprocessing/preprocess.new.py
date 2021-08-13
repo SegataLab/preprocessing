@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.5'
-__date__ = '30 July 2020'
+__version__ = '0.2.6'
+__date__ = '13 August 2021'
 
 
 import os
@@ -235,7 +235,7 @@ def quality_control_mp(x):
             oR = R[:R.rfind('.')]
 
             if not os.path.isfile('{}_trimmed.fq'.format(os.path.join(input_dir, oR))):
-                cmd = ('trim_galore --nextera --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n --dont_gzip '
+                cmd = ('trim_galore --nextera --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n -j 1 --dont_gzip '
                        '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
 
                 # command for Moreno, no --nextera
