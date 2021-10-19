@@ -2,7 +2,7 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.8'
+__version__ = '0.2.9'
 __date__ = '19 October 2021'
 
 
@@ -230,8 +230,16 @@ def quality_control(input_dir, merged_r1_r2, keep_intermediate, sn, nproc=1, dry
         except Exception as e:
             error('quality_control()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
 
-    r1 = [i for i in qc if "R1" in i.replace(sn, '')]
-    r2 = [i for i in qc if "R2" in i.replace(sn, '')]
+    fwd, rev = 'R1', 'R2'
+    r1, r2 = [], []
+    count_fwd = sn.count(fwd) + 1 if fwd in sn else 1
+    count_rev = sn.count(rev) + 1 if rev in sn else 1
+
+    for i in qc:
+        if i.count(fwd) == count_fwd:
+            r1.append(i)
+        elif i.count(rev) == count_rev:
+            r2.append(i)
 
     if len(r1) > 1:
         error('quality_control(): more than one R1 detected: [{}]'.format(', '.join(r1)), exit=True)
