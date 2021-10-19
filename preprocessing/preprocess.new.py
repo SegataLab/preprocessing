@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.6'
-__date__ = '13 August 2021'
+__version__ = '0.2.8'
+__date__ = '19 October 2021'
 
 
 import os
@@ -120,10 +120,25 @@ def get_inputs(input_dir, fwd, rev, sn, ext, verbose=False):
     if verbose:
         info('get_inputs()\n', init_new_line=True)
 
-    R1 = sorted([os.path.join(input_dir, i) for i in os.listdir(input_dir) if (fwd in i.replace(sn, '')) and i.endswith(ext)])
-    R2 = sorted([os.path.join(input_dir, i) for i in os.listdir(input_dir) if (rev in i.replace(sn, '')) and i.endswith(ext)])
+    R1, R2 = [], []
 
-    return (R1, R2)
+    if (fwd not in sn) and (rev not in sn):
+        R1 = [os.path.join(input_dir, i) for i in os.listdir(input_dir) if (fwd in i) and i.endswith(ext)]
+        R2 = [os.path.join(input_dir, i) for i in os.listdir(input_dir) if (rev in i) and i.endswith(ext)]
+    else:
+        count_fwd = sn.count(fwd) + 1 if fwd in sn else 1
+        count_rev = sn.count(rev) + 1 if rev in sn else 1
+
+        for i in os.listdir(input_dir):
+            if not i.endswith(ext):
+                continue
+
+            if i.count(fwd) == count_fwd:
+                R1.append(os.path.join(input_dir, i))
+            elif i.count(rev) == count_rev:
+                R2.append(os.path.join(input_dir, i))
+
+    return (sorted(R1), sorted(R2))
 
 
 def concatenate_reads(input_dir, inputs_r1s_r2s, nproc=1, dry_run=False, verbose=False):
@@ -235,7 +250,7 @@ def quality_control_mp(x):
             oR = R[:R.rfind('.')]
 
             if not os.path.isfile('{}_trimmed.fq'.format(os.path.join(input_dir, oR))):
-                cmd = ('trim_galore --nextera --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n -j 1 --dont_gzip '
+                cmd = ('trim_galore --nextera --stringency 5 --length 75 --2colour 20 --max_n 2 --trim-n -j 1 --dont_gzip '
                        '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
 
                 # command for Moreno, no --nextera
