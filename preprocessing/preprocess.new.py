@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.9'
-__date__ = '19 October 2021'
+__version__ = '0.2.10'
+__date__ = '8 November 2021'
 
 
 import os
@@ -64,7 +64,7 @@ def read_params():
 
     rm = p.add_argument_group('Params for what contaminats should be removed')
     rm.add_argument('--rm_hsap', required=False, default=False, action='store_true', help="Remove H. sapiens genome")
-    rm.add_argument('--rm_mmus', required=False, default=False, action='store_true', help="Remove M. musculus genome")
+    rm.add_argument('--rm_mmus', required=False, default=False, action='store_true', help="Remove M. musculus C57BL/6J (black 6) genome")
     rm.add_argument('--rm_rrna', required=False, default=False, action='store_true', help="Remove rRNA (for mRNA datasets)")
 
     p.add_argument('-k', '--keep_intermediate', required=False, default=False, action='store_true',
@@ -371,33 +371,21 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
     return tuple(screened)
 
 
-def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_run=False, verbose=False):
+def split_and_sort(input_dir, screened_r1_r2, samplename, keep_intermediate, nproc=1, dry_run=False, verbose=False):
     if dry_run or verbose:
         info('split_and_sort()\n', init_new_line=True)
 
     R1, R2 = screened_r1_r2
-    out = R1[:R1.find('.')]
-    put = '_'.join([a for a in
-                    R1[R1.rfind('R1'):R1.rfind('.')].replace('R1', '').replace('trimmed', '').replace('phiX174', '').replace('hg19', '').split('_')
-                    if a])
-    outR2 = R2[:R2.find('.')]
-    putR2 = '_'.join([a for a in
-                      R2[R2.rfind('R2'):R2.rfind('.')].replace('R2', '').replace('trimmed', '').replace('phiX174', '').replace('hg19', '').split('_')
-                      if a])
 
-    if (out != outR2) or (put != putR2):
-        error('split_and_sort() ::: cannot finds common filename!\n    R1: {}\n    R2: {}\n   out: {}\n   put: {}'
-              .format(R1, R2, out, put), exit=True)
-
-    if not (os.path.isfile(out + put + '_R1.fastq.bz2') and
-            os.path.isfile(out + put + '_R2.fastq.bz2') and
-            os.path.isfile(out + put + '_UN.fastq.bz2')):
+    if not (os.path.isfile(samplename + '_R1.fastq.bz2') and
+            os.path.isfile(samplename + '_R2.fastq.bz2') and
+            os.path.isfile(samplename + '_UN.fastq.bz2')):
         # cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(os.path.join(input_dir, R1),
         #                                                              os.path.join(input_dir, R2),
         #                                                              os.path.join(input_dir, out + put))
         cmd = 'split_and_sort.new.py --R1 {} --R2 {} --prefix {}'.format(os.path.join(input_dir, R1),
                                                                          os.path.join(input_dir, R2),
-                                                                         os.path.join(input_dir, out + put))
+                                                                         os.path.join(input_dir, samplename))
 
         if dry_run or verbose:
             info('{}\n'.format(cmd))
@@ -406,9 +394,9 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                for i in [os.path.isfile(out + put + '_R1.fastq.bz2'),
-                          os.path.isfile(out + put + '_R2.fastq.bz2'),
-                          os.path.isfile(out + put + '_UN.fastq.bz2')]:
+                for i in [os.path.isfile(samplename + '_R1.fastq.bz2'),
+                          os.path.isfile(samplename + '_R2.fastq.bz2'),
+                          os.path.isfile(samplename + '_UN.fastq.bz2')]:
                     if os.path.exists(i):
                         os.remove(i)
 
@@ -416,17 +404,17 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
 
     tasks = []
 
-    if not os.path.isfile(out + put + '_R1.stats'):
-        tasks.append(('fna_len.py -q --stat {0}_R1.fastq.bz2 {0}_R1.stats'.format(os.path.join(input_dir, out + put)),
-                      '{0}_R1.stats'.format(os.path.join(input_dir, out + put)), dry_run, verbose))
+    if not os.path.isfile(samplename + '_R1.stats'):
+        tasks.append(('fna_len.py -q --stat {0}_R1.fastq.bz2 {0}_R1.stats'.format(os.path.join(input_dir, samplename)),
+                      '{0}_R1.stats'.format(os.path.join(input_dir, samplename)), dry_run, verbose))
 
-    if not os.path.isfile(out + put + '_R2.stats'):
-        tasks.append(('fna_len.py -q --stat {0}_R2.fastq.bz2 {0}_R2.stats'.format(os.path.join(input_dir, out + put)),
-                      '{0}_R2.stats'.format(os.path.join(input_dir, out + put)), dry_run, verbose))
+    if not os.path.isfile(samplename + '_R2.stats'):
+        tasks.append(('fna_len.py -q --stat {0}_R2.fastq.bz2 {0}_R2.stats'.format(os.path.join(input_dir, samplename)),
+                      '{0}_R2.stats'.format(os.path.join(input_dir, samplename)), dry_run, verbose))
 
-    if not os.path.isfile(out + put + '_UN.stats'):
-        tasks.append(('fna_len.py -q --stat {0}_UN.fastq.bz2 {0}_UN.stats'.format(os.path.join(input_dir, out + put)),
-                      '{0}_UN.stats'.format(os.path.join(input_dir, out + put)), dry_run, verbose))
+    if not os.path.isfile(samplename + '_UN.stats'):
+        tasks.append(('fna_len.py -q --stat {0}_UN.fastq.bz2 {0}_UN.stats'.format(os.path.join(input_dir, samplename)),
+                      '{0}_UN.stats'.format(os.path.join(input_dir, samplename)), dry_run, verbose))
 
     terminating = mp.Event()
 
@@ -436,8 +424,8 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
         except Exception as e:
             error('split_and_sort()\ntasks: {}\n    e: {}'.format(tasks, e), init_new_line=True, exit=True)
 
-    if not os.path.isfile(out + put + '_summary.stats'):
-        cmd = 'cat_stats.py -i {} -o {}'.format(input_dir, os.path.join(input_dir, out + put + '_summary.stats'))
+    if not os.path.isfile(samplename + '_summary.stats'):
+        cmd = 'cat_stats.py -i {} -o {}'.format(input_dir, os.path.join(input_dir, samplename + '_summary.stats'))
 
         if dry_run or verbose:
             info('{}\n'.format(cmd))
@@ -446,13 +434,13 @@ def split_and_sort(input_dir, screened_r1_r2, keep_intermediate, nproc=1, dry_ru
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                if os.path.exists(out + put + '_summary.stats'):
-                    os.remove(out + put + '_summary.stats')
+                if os.path.exists(samplename + '_summary.stats'):
+                    os.remove(samplename + '_summary.stats')
 
                 error('split_and_sort()\n{}\n{}'.format(cmd, e), exit=True)
 
     remove(screened_r1_r2, keep_intermediate, folder=input_dir, dry_run=dry_run, verbose=verbose)
-    return (out + put + '_R1.fastq.bz2', out + put + '_R2.fastq.bz2', out + put + '_UN.fastq.bz2')
+    return (samplename + '_R1.fastq.bz2', samplename + '_R2.fastq.bz2', samplename + '_UN.fastq.bz2')
 
 
 def split_and_sort_mp(x):
@@ -536,7 +524,7 @@ if __name__ == "__main__":
         info('screened_r1: {}\n'.format(screened_r1_r2[0]), init_new_line=True)
         info('screened_r2: {}\n'.format(screened_r1_r2[1]))
 
-    splitted_and_sorted = split_and_sort(args.input_dir, screened_r1_r2, args.keep_intermediate,
+    splitted_and_sorted = split_and_sort(args.input_dir, screened_r1_r2, args.samplename, args.keep_intermediate,
                                          nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
     remove(screened_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
     remove([f for f in os.listdir(args.input_dir) if f.endswith('.stats') and ('_summary.stats' not in f)], args.keep_intermediate, folder=args.input_dir, dry_run=True, verbose=args.verbose)
