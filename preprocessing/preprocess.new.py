@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.10'
-__date__ = '8 November 2021'
+__version__ = '0.2.11'
+__date__ = '26 January 2022'
 
 
 import os
@@ -66,6 +66,7 @@ def read_params():
     rm.add_argument('--rm_hsap', required=False, default=False, action='store_true', help="Remove H. sapiens genome")
     rm.add_argument('--rm_mmus', required=False, default=False, action='store_true', help="Remove M. musculus C57BL/6J (black 6) genome")
     rm.add_argument('--rm_rrna', required=False, default=False, action='store_true', help="Remove rRNA (for mRNA datasets)")
+    rm.add_argument('--rm_pcin', required=False, default=False, action='store_true', help="Remove P. cinereus GCA_900166895 (Koala) genome")
 
     p.add_argument('-k', '--keep_intermediate', required=False, default=False, action='store_true',
                    help="If specified the script won't remove intermediate files")
@@ -98,8 +99,8 @@ def preflight_check(dry_run=False, verbose=False):
     if dry_run or verbose:
         info('preflight_check()\n', init_new_line=True)
 
-    cmds = ['fna_len.py -h', 'trim_galore --help', 'bowtie2 -h',
-            'split_and_sort.new.py -h',  # 'split_and_sort.py -h',
+    cmds = ['fna_len.py -h', 'trim_galore --help', 'bowtie2 -h', 
+            'split_and_sort.new.py -h', 
             'cat_stats.py -h']
 
     for cmd in cmds:
@@ -181,11 +182,9 @@ def concatenate_reads_mp(x):
                         # decompress input file
                         if inpR.endswith('.bz2'):
                             with bz2.open(inpR, 'rb') as f:
-                                # g.write(f.read())
                                 shutil.copyfileobj(f, g)
                         elif inpR.endswith('.gz'):
                             with gzip.open(inpR, 'rb') as f:
-                                # g.write(f.read())
                                 shutil.copyfileobj(f, g)
 
                     g.close()
@@ -281,7 +280,6 @@ def quality_control_mp(x):
                 if not dry_run:
                     sb.check_call(cmd.split(' '))
 
-            # remove([R], keep_intermediate, folder=input_dir, dry_run=dry_run, verbose=verbose)
             return '{}_trimmed.fq'.format(oR)
         except Exception as e:
             terminating.set()
@@ -296,7 +294,7 @@ def quality_control_mp(x):
         terminating.set()
 
 
-def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_intermediate, rm_hsap, rm_rrna, rm_mmus,
+def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_intermediate, rm_hsap, rm_rrna, rm_mmus, rm_pcin, 
                               nprocs_bowtie2=1, dry_run=False, verbose=False):
     if dry_run or verbose:
         info('screen_contaminating_dnas()\n', init_new_line=True)
@@ -313,6 +311,9 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
 
     if rm_rrna:
         cont_dnas += ['SILVA_132_SSURef_Nr99_tax_silva', 'SILVA_132_LSURef_tax_silva']
+
+    if rm_pcin:
+        cont_dnas += ['Phascolarctos_cinereus__GCA_900166895.1__tgac_v2.0']
 
     for R in qced_r1_r2:
         outf = R[:R.rfind('.')]
@@ -380,9 +381,6 @@ def split_and_sort(input_dir, screened_r1_r2, samplename, keep_intermediate, npr
     if not (os.path.isfile(samplename + '_R1.fastq.bz2') and
             os.path.isfile(samplename + '_R2.fastq.bz2') and
             os.path.isfile(samplename + '_UN.fastq.bz2')):
-        # cmd = 'split_and_sort.py --R1 {} --R2 {} --prefix {}'.format(os.path.join(input_dir, R1),
-        #                                                              os.path.join(input_dir, R2),
-        #                                                              os.path.join(input_dir, out + put))
         cmd = 'split_and_sort.new.py --R1 {} --R2 {} --prefix {}'.format(os.path.join(input_dir, R1),
                                                                          os.path.join(input_dir, R2),
                                                                          os.path.join(input_dir, samplename))
@@ -515,7 +513,7 @@ if __name__ == "__main__":
         info('qced_r2: {}\n'.format(qced_r1_r2[1]))
 
     screened_r1_r2 = screen_contaminating_dnas(args.input_dir, qced_r1_r2, args.bowtie2_indexes, args.keep_intermediate,
-                                               args.rm_hsap, args.rm_rrna, args.rm_mmus,
+                                               args.rm_hsap, args.rm_rrna, args.rm_mmus, args.rm_pcin, 
                                                nprocs_bowtie2=args.nproc_bowtie2 if args.nproc_bowtie2 > args.nproc else args.nproc,
                                                dry_run=args.dry_run, verbose=args.verbose)
     remove(qced_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
