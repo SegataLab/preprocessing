@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.11'
-__date__ = '26 January 2022'
+__version__ = '0.2.12'
+__date__ = '5 July 2022'
 
 
 import os
@@ -62,11 +62,13 @@ def read_params():
     procs.add_argument('-n', '--nproc', required=False, default=2, type=int, help="Number of threads to use")
     procs.add_argument('-b', '--nproc_bowtie2', required=False, default=2, type=int, help="Number of bowtie2 processors")
 
-    rm = p.add_argument_group('Params for what contaminats should be removed')
+    rm = p.add_argument_group('Available host genomes that can be removed')
     rm.add_argument('--rm_hsap', required=False, default=False, action='store_true', help="Remove H. sapiens genome")
-    rm.add_argument('--rm_mmus', required=False, default=False, action='store_true', help="Remove M. musculus C57BL/6J (black 6) genome")
+    rm.add_argument('--rm_mmus', required=False, default=False, action='store_true', help="Remove Mus musculus C57BL/6J (black 6) genome")
     rm.add_argument('--rm_rrna', required=False, default=False, action='store_true', help="Remove rRNA (for mRNA datasets)")
-    rm.add_argument('--rm_pcin', required=False, default=False, action='store_true', help="Remove P. cinereus GCA_900166895 (Koala) genome")
+    rm.add_argument('--rm_pcin', required=False, default=False, action='store_true', help="Remove Phascolarctos cinereus GCA_900166895 (Koala) genome")
+    rm.add_argument('--rm_pcoq', required=False, default=False, action='store_true', help="Remove Propithecus coquereli (lemur) genome")
+    rm.add_argument('--rm_mmur', required=False, default=False, action='store_true', help="Remove Microcebus murinus (grey mouse lemur) genome")
 
     p.add_argument('-k', '--keep_intermediate', required=False, default=False, action='store_true',
                    help="If specified the script won't remove intermediate files")
@@ -294,8 +296,8 @@ def quality_control_mp(x):
         terminating.set()
 
 
-def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_intermediate, rm_hsap, rm_rrna, rm_mmus, rm_pcin, 
-                              nprocs_bowtie2=1, dry_run=False, verbose=False):
+def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_intermediate, rm_hsap, rm_rrna, rm_mmus, rm_pcin, rm_pcoq,
+                              rm_mmur, nprocs_bowtie2=1, dry_run=False, verbose=False):
     if dry_run or verbose:
         info('screen_contaminating_dnas()\n', init_new_line=True)
 
@@ -314,6 +316,12 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
 
     if rm_pcin:
         cont_dnas += ['Phascolarctos_cinereus__GCA_900166895.1__tgac_v2.0']
+
+    if rm_pcoq:
+        cont_dnas += ['Propithecus_coquereli_GCF_000956105.1']
+
+    if rm_mmur:
+        cont_dnas += ['Microcebus_murinus_GCF_000165445.2']
 
     for R in qced_r1_r2:
         outf = R[:R.rfind('.')]
@@ -513,7 +521,7 @@ if __name__ == "__main__":
         info('qced_r2: {}\n'.format(qced_r1_r2[1]))
 
     screened_r1_r2 = screen_contaminating_dnas(args.input_dir, qced_r1_r2, args.bowtie2_indexes, args.keep_intermediate,
-                                               args.rm_hsap, args.rm_rrna, args.rm_mmus, args.rm_pcin, 
+                                               args.rm_hsap, args.rm_rrna, args.rm_mmus, args.rm_pcin, args.rm_pcoq, args.rm_mmur,
                                                nprocs_bowtie2=args.nproc_bowtie2 if args.nproc_bowtie2 > args.nproc else args.nproc,
                                                dry_run=args.dry_run, verbose=args.verbose)
     remove(qced_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
