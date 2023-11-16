@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.12'
-__date__ = '5 July 2022'
+__version__ = '0.2.13'
+__date__ = '16 November 2023'
 
 
 import os
@@ -16,6 +16,7 @@ import subprocess as sb
 import multiprocessing as mp
 import time
 import shutil
+from Bio import SeqIO
 
 
 if sys.version_info[0] < 3:
@@ -63,13 +64,31 @@ def read_params():
     procs.add_argument('-b', '--nproc_bowtie2', required=False, default=2, type=int, help="Number of bowtie2 processors")
 
     rm = p.add_argument_group('Available host genomes that can be removed')
-    rm.add_argument('--rm_hsap', required=False, default=False, action='store_true', help="Remove H. sapiens genome")
-    rm.add_argument('--rm_mmus', required=False, default=False, action='store_true', help="Remove Mus musculus C57BL/6J (black 6) genome")
-    rm.add_argument('--rm_rrna', required=False, default=False, action='store_true', help="Remove rRNA (for mRNA datasets)")
-    rm.add_argument('--rm_pcin', required=False, default=False, action='store_true', help="Remove Phascolarctos cinereus GCA_900166895 (Koala) genome")
-    rm.add_argument('--rm_pcoq', required=False, default=False, action='store_true', help="Remove Propithecus coquereli (lemur) genome")
-    rm.add_argument('--rm_mmur', required=False, default=False, action='store_true', help="Remove Microcebus murinus (grey mouse lemur) genome")
+    rm.add_argument('--rm_hsap', required=False, default=False, action='store_true', 
+                    help="Remove H. sapiens genome")
+    rm.add_argument('--rm_mmus', required=False, default=False, action='store_true', 
+                    help="Remove Mus musculus C57BL/6J (black 6) genome")
+    rm.add_argument('--rm_rrna', required=False, default=False, action='store_true', 
+                    help="Remove rRNA (for mRNA datasets)")
+    rm.add_argument('--rm_pcin', required=False, default=False, action='store_true', 
+                    help="Remove Phascolarctos cinereus GCA_900166895 (Koala) genome")
+    rm.add_argument('--rm_pcoq', required=False, default=False, action='store_true', 
+                    help="Remove Propithecus coquereli (lemur) genome")
+    rm.add_argument('--rm_mmur', required=False, default=False, action='store_true', 
+                    help="Remove Microcebus murinus (grey mouse lemur) genome")
+    rm.add_argument('--rm_mmul', required=False, default=False, action='store_true', 
+                    help="Remove Macaca mulatta GCF_003339765 (rhesus monkey) genome")
+    rm.add_argument('--rm_ptro', required=False, default=False, action='store_true', 
+                    help="Remove Pan troglodytes GCF_028858775 (chimpanzee) genome")
+    rm.add_argument('--rm_sbol', required=False, default=False, action='store_true', 
+                    help="Remove Saimiri boliviensis GCF_016699345 (squirrel monkey) genome")
+    rm.add_argument('--rm_vvar', required=False, default=False, action='store_true', 
+                    help="Remove Varecia variegata GCA_028533085 (black-and-white ruffed lemur) genome")
+    rm.add_argument('--rm_clup', required=False, default=False, action='store_true', 
+                    help="Remove Canis lupus familiaris GCF_000002285 (dog) genome")
 
+    p.add_argument('-p', '--paired_end', required=False, default=False, action='store_true',
+                   help="Specify this when providing paired-end sequencing reads as input")
     p.add_argument('-k', '--keep_intermediate', required=False, default=False, action='store_true',
                    help="If specified the script won't remove intermediate files")
     p.add_argument('-x', '--bowtie2_indexes', required=False, default='/shares/CIBIO-Storage/CM/scratch/databases/bowtie2_indexes',
@@ -255,16 +274,20 @@ def quality_control_mp(x):
     if not terminating.is_set():
         try:
             R, input_dir, keep_intermediate, dry_run, verbose = x
-
             oR = R[:R.rfind('.')]
 
             if not os.path.isfile('{}_trimmed.fq'.format(os.path.join(input_dir, oR))):
+                # # METATRANSCRIPTOMES (RNA) as they have usually shorter fragments - cut length 50
+                # cmd = ('trim_galore --nextera --stringency 5 --length 50 --2colour 20 --max_n 2 --trim-n -j 1 --dont_gzip '
+                #        '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
+
+                # STANDARD DNA (meta)genomes
                 cmd = ('trim_galore --nextera --stringency 5 --length 75 --2colour 20 --max_n 2 --trim-n -j 1 --dont_gzip '
                        '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
 
-                # command for Moreno, no --nextera
-                #cmd = ('trim_galore --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n --dont_gzip '
-                #       '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
+                # # command for Moreno, no --nextera
+                # cmd = ('trim_galore --stringency 5 --length 75 --quality 20 --max_n 2 --trim-n --dont_gzip '
+                #        '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
 
                 if dry_run or verbose:
                     info('{}\n'.format(cmd))
@@ -297,7 +320,7 @@ def quality_control_mp(x):
 
 
 def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_intermediate, rm_hsap, rm_rrna, rm_mmus, rm_pcin, rm_pcoq,
-                              rm_mmur, nprocs_bowtie2=1, dry_run=False, verbose=False):
+                              rm_mmur, rm_mmul, rm_ptro, rm_sbol, rm_vvar, rm_clup, nprocs_bowtie2=1, dry_run=False, verbose=False):
     if dry_run or verbose:
         info('screen_contaminating_dnas()\n', init_new_line=True)
 
@@ -323,6 +346,21 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
     if rm_mmur:
         cont_dnas += ['Microcebus_murinus_GCF_000165445.2']
 
+    if rm_mmul:
+        cont_dnas += ['mmulatta_GCF_003339765.1']
+
+    if rm_ptro:
+        cont_dnas += ['ptroglodytes_GCF_028858775.1']
+
+    if rm_sbol:
+        cont_dnas += ['sboliviensis_GCF_016699345.2']
+
+    if rm_vvar:
+        cont_dnas += ['vvariegata_GCA_028533085.1']
+
+    if rm_clup:
+        cont_dnas += ['clfamiliaris_GCF_000002285.5']
+
     for R in qced_r1_r2:
         outf = R[:R.rfind('.')]
         Rext = R[R.rfind('.'):]
@@ -335,9 +373,7 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
 
             if not os.path.isfile('{}.fastq'.format(os.path.join(input_dir, outf))):
                 cmd = ('bowtie2 -x {} -U {} -p {} --sensitive-local --un {}.fastq'
-                       .format(os.path.join(bowtie2_indexes, cont_dna),
-                               os.path.join(input_dir, iR + Rext),
-                               nprocs_bowtie2,
+                       .format(os.path.join(bowtie2_indexes, cont_dna), os.path.join(input_dir, iR + Rext), nprocs_bowtie2,
                                os.path.join(input_dir, outf)))
 
                 if dry_run or verbose:
@@ -380,7 +416,20 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
     return tuple(screened)
 
 
-def split_and_sort(input_dir, screened_r1_r2, samplename, keep_intermediate, nproc=1, dry_run=False, verbose=False):
+def get_unpaired(input_dir, r1_r2, samplename):
+    r1_index = SeqIO.index(os.path.join(input_dir, r1_r2[0]), "fastq")
+    r2_index = SeqIO.index(os.path.join(input_dir, r1_r2[1]), "fastq")
+    unpaired_file = samplename + '_unpaired.txt.bz2'
+
+    with bz2.open(os.path.join(input_dir, unpaired_file), 'wt') as f:
+        f.write('\n'.join( (i for i in r1_index if i not in r2_index) ) + '\n' +
+                '\n'.join( (i for i in r2_index if i not in r1_index) ) + '\n')
+
+    return unpaired_file
+
+
+def split_and_sort(input_dir, screened_r1_r2, samplename, keep_intermediate, unpaired_file, 
+                   nproc=1, dry_run=False, verbose=False):
     if dry_run or verbose:
         info('split_and_sort()\n', init_new_line=True)
 
@@ -392,6 +441,9 @@ def split_and_sort(input_dir, screened_r1_r2, samplename, keep_intermediate, npr
         cmd = 'split_and_sort.new.py --R1 {} --R2 {} --prefix {}'.format(os.path.join(input_dir, R1),
                                                                          os.path.join(input_dir, R2),
                                                                          os.path.join(input_dir, samplename))
+
+        if unpaired_file and os.path.isfile(os.path.join(input_dir, unpaired_file)):
+            cmd += ' --unpaired {}'.format(os.path.join(input_dir, unpaired_file))
 
         if dry_run or verbose:
             info('{}\n'.format(cmd))
@@ -475,15 +527,15 @@ def remove(to_remove, keep_intermediate, folder=None, dry_run=False, verbose=Fal
     if verbose:
         info('remove()\n', init_new_line=True)
 
-    if not args.keep_intermediate:
+    if not keep_intermediate:
         for r in to_remove:
             rf = os.path.join(folder, r) if folder else r
 
             if os.path.isfile(rf):
-                if args.verbose:
+                if verbose:
                     info('rm {}\n'.format(rf))
 
-                if not args.dry_run:
+                if not dry_run:
                     os.remove(rf)
 
 
@@ -520,8 +572,11 @@ if __name__ == "__main__":
         info('qced_r1: {}\n'.format(qced_r1_r2[0]), init_new_line=True)
         info('qced_r2: {}\n'.format(qced_r1_r2[1]))
 
+    unpaired_file = get_unpaired(args.input_dir, qced_r1_r2, args.samplename) if args.paired_end else None
+
     screened_r1_r2 = screen_contaminating_dnas(args.input_dir, qced_r1_r2, args.bowtie2_indexes, args.keep_intermediate,
                                                args.rm_hsap, args.rm_rrna, args.rm_mmus, args.rm_pcin, args.rm_pcoq, args.rm_mmur,
+                                               args.rm_mmul, args.rm_ptro, args.rm_sbol, args.rm_vvar, args.rm_clup,
                                                nprocs_bowtie2=args.nproc_bowtie2 if args.nproc_bowtie2 > args.nproc else args.nproc,
                                                dry_run=args.dry_run, verbose=args.verbose)
     remove(qced_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
@@ -530,10 +585,11 @@ if __name__ == "__main__":
         info('screened_r1: {}\n'.format(screened_r1_r2[0]), init_new_line=True)
         info('screened_r2: {}\n'.format(screened_r1_r2[1]))
 
-    splitted_and_sorted = split_and_sort(args.input_dir, screened_r1_r2, args.samplename, args.keep_intermediate,
+    splitted_and_sorted = split_and_sort(args.input_dir, screened_r1_r2, args.samplename, args.keep_intermediate, unpaired_file,
                                          nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
     remove(screened_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
-    remove([f for f in os.listdir(args.input_dir) if f.endswith('.stats') and ('_summary.stats' not in f)], args.keep_intermediate, folder=args.input_dir, dry_run=True, verbose=args.verbose)
+    remove([f for f in os.listdir(args.input_dir) if f.endswith('.stats') and not f.endswith('_summary.stats')], args.keep_intermediate, 
+           folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
 
     if args.dry_run or args.verbose:
         info('splitted_and_sorted: {}\n'.format(splitted_and_sorted[0]), init_new_line=True)
