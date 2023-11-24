@@ -2,8 +2,8 @@
 
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.2.13'
-__date__ = '16 November 2023'
+__version__ = '0.2.14'
+__date__ = '21 November 2023'
 
 
 import os
@@ -452,9 +452,9 @@ def split_and_sort(input_dir, screened_r1_r2, samplename, keep_intermediate, unp
             try:
                 sb.check_call(cmd.split(' '))
             except Exception as e:
-                for i in [os.path.isfile(samplename + '_R1.fastq.bz2'),
-                          os.path.isfile(samplename + '_R2.fastq.bz2'),
-                          os.path.isfile(samplename + '_UN.fastq.bz2')]:
+                for i in [os.path.join(samplename + '_R1.fastq.bz2'),
+                          os.path.join(samplename + '_R2.fastq.bz2'),
+                          os.path.join(samplename + '_UN.fastq.bz2')]:
                     if os.path.exists(i):
                         os.remove(i)
 
