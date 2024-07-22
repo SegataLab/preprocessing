@@ -86,6 +86,10 @@ def read_params():
                     help="Remove Varecia variegata GCA_028533085 (black-and-white ruffed lemur) genome")
     rm.add_argument('--rm_clup', required=False, default=False, action='store_true', 
                     help="Remove Canis lupus familiaris GCF_000002285 (dog) genome")
+    rm.add_argument('--rm_cjac', required=False, default=False, action='store_true',
+                    help="Remove Callithrix jacchus GCF_011100555 (common marmoset) genome")
+    rm.add_argument('--rm_agig', required=False, default=False, action='store_true',
+                    help="Remove Aldabrachelys gigantea GCA_026122505 (giant tortoise) genome")
 
     p.add_argument('-p', '--paired_end', required=False, default=False, action='store_true',
                    help="Specify this when providing paired-end sequencing reads as input")
@@ -320,7 +324,7 @@ def quality_control_mp(x):
 
 
 def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_intermediate, rm_hsap, rm_rrna, rm_mmus, rm_pcin, rm_pcoq,
-                              rm_mmur, rm_mmul, rm_ptro, rm_sbol, rm_vvar, rm_clup, nprocs_bowtie2=1, dry_run=False, verbose=False):
+                              rm_mmur, rm_mmul, rm_ptro, rm_sbol, rm_vvar, rm_clup, rm_cjac, rm_agig, nprocs_bowtie2=1, dry_run=False, verbose=False):
     if dry_run or verbose:
         info('screen_contaminating_dnas()\n', init_new_line=True)
 
@@ -360,6 +364,12 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
 
     if rm_clup:
         cont_dnas += ['clfamiliaris_GCF_000002285.5']
+
+    if rm_cjac:
+        cont_dnas += ['cjacchus_GCF_011100555.1']
+
+    if rm_agig:
+        cont_dnas += ['agigantea_GCA_026122505.1']
 
     for R in qced_r1_r2:
         outf = R[:R.rfind('.')]
@@ -576,7 +586,7 @@ if __name__ == "__main__":
 
     screened_r1_r2 = screen_contaminating_dnas(args.input_dir, qced_r1_r2, args.bowtie2_indexes, args.keep_intermediate,
                                                args.rm_hsap, args.rm_rrna, args.rm_mmus, args.rm_pcin, args.rm_pcoq, args.rm_mmur,
-                                               args.rm_mmul, args.rm_ptro, args.rm_sbol, args.rm_vvar, args.rm_clup,
+                                               args.rm_mmul, args.rm_ptro, args.rm_sbol, args.rm_vvar, args.rm_clup, args.rm_cjac, args.rm_agig,
                                                nprocs_bowtie2=args.nproc_bowtie2 if args.nproc_bowtie2 > args.nproc else args.nproc,
                                                dry_run=args.dry_run, verbose=args.verbose)
     remove(qced_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
