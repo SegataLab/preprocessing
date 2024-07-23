@@ -65,7 +65,7 @@ def read_params():
 
     rm = p.add_argument_group('Available host genomes that can be removed')
     rm.add_argument('--rm_hsap', required=False, default=False, action='store_true', 
-                    help="Remove H. sapiens genome")
+                    help="Remove Homo sapiens genome")
     rm.add_argument('--rm_mmus', required=False, default=False, action='store_true', 
                     help="Remove Mus musculus C57BL/6J (black 6) genome")
     rm.add_argument('--rm_rrna', required=False, default=False, action='store_true', 
@@ -90,6 +90,10 @@ def read_params():
                     help="Remove Callithrix jacchus GCF_011100555 (common marmoset) genome")
     rm.add_argument('--rm_agig', required=False, default=False, action='store_true',
                     help="Remove Aldabrachelys gigantea GCA_026122505 (giant tortoise) genome")
+    rm.add_argument('--rm_alho', required=False, default=False, action='store_true',
+                    help="Remove Allochrocebus lhoesti GCA_963574325 (Hoest's monkey, aka Cercopithecus lhoesti) genome")
+    rm.add_argument('--rm_soed', required=False, default=False, action='store_true',
+                    help="Remove Saguinus oedipus GCA_031835075 (cotton-top tamarin) genome")
 
     p.add_argument('-p', '--paired_end', required=False, default=False, action='store_true',
                    help="Specify this when providing paired-end sequencing reads as input")
@@ -370,6 +374,12 @@ def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_inter
 
     if rm_agig:
         cont_dnas += ['agigantea_GCA_026122505.1']
+
+    if rm_alho:
+        cont_dnas += ['GCA_963574325']
+
+    if rm_soed:
+        cont_dnas += ['GCA_031835075']
 
     for R in qced_r1_r2:
         outf = R[:R.rfind('.')]
