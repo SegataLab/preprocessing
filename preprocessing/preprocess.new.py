@@ -328,7 +328,8 @@ def quality_control_mp(x):
 
 
 def screen_contaminating_dnas(input_dir, qced_r1_r2, bowtie2_indexes, keep_intermediate, rm_hsap, rm_rrna, rm_mmus, rm_pcin, rm_pcoq,
-                              rm_mmur, rm_mmul, rm_ptro, rm_sbol, rm_vvar, rm_clup, rm_cjac, rm_agig, nprocs_bowtie2=1, dry_run=False, verbose=False):
+                              rm_mmur, rm_mmul, rm_ptro, rm_sbol, rm_vvar, rm_clup, rm_cjac, rm_agig, rm_alho, rm_soed, 
+                              nprocs_bowtie2=1, dry_run=False, verbose=False):
     if dry_run or verbose:
         info('screen_contaminating_dnas()\n', init_new_line=True)
 
@@ -596,7 +597,8 @@ if __name__ == "__main__":
 
     screened_r1_r2 = screen_contaminating_dnas(args.input_dir, qced_r1_r2, args.bowtie2_indexes, args.keep_intermediate,
                                                args.rm_hsap, args.rm_rrna, args.rm_mmus, args.rm_pcin, args.rm_pcoq, args.rm_mmur,
-                                               args.rm_mmul, args.rm_ptro, args.rm_sbol, args.rm_vvar, args.rm_clup, args.rm_cjac, args.rm_agig,
+                                               args.rm_mmul, args.rm_ptro, args.rm_sbol, args.rm_vvar, args.rm_clup, args.rm_cjac, 
+                                               args.rm_agig, args.rm_alho, args.rm_soed, 
                                                nprocs_bowtie2=args.nproc_bowtie2 if args.nproc_bowtie2 > args.nproc else args.nproc,
                                                dry_run=args.dry_run, verbose=args.verbose)
     remove(qced_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
