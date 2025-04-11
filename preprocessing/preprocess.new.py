@@ -290,7 +290,7 @@ def quality_control_mp(x):
                 #        '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
 
                 # STANDARD DNA (meta)genomes
-                cmd = ('trim_galore --nextera --stringency 5 --length 75 --2colour 20 --max_n 2 --trim-n -j 1 --dont_gzip '
+                cmd = ('trim_galore --nextera --length 75 --2colour 20 --max_n 2 --trim-n -j 1 --dont_gzip '
                        '--no_report_file --suppress_warn --output_dir {} {}').format(input_dir, os.path.join(input_dir, R))
 
                 # # command for Moreno, no --nextera
@@ -579,7 +579,9 @@ if __name__ == "__main__":
         info('inputs_r1s: {}\n'.format('\n            '.join(inputs_r1s_r2s[0])), init_new_line=True)
         info('inputs_r2s: {}\n'.format('\n            '.join(inputs_r1s_r2s[1])))
 
+    t_cr = time.time()
     merged_r1_r2 = concatenate_reads(args.input_dir, inputs_r1s_r2s, nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
+    info('\nCONCATENATE_READS time: {} s\n'.format(int(time.time()) - t_cr), init_new_line=True)
 
     if args.dry_run or args.verbose:
         info('merged_r1: {}\n'.format(merged_r1_r2[0]), init_new_line=True)
@@ -607,8 +609,11 @@ if __name__ == "__main__":
         info('screened_r1: {}\n'.format(screened_r1_r2[0]), init_new_line=True)
         info('screened_r2: {}\n'.format(screened_r1_r2[1]))
 
+    t_sas = time.time()
     splitted_and_sorted = split_and_sort(args.input_dir, screened_r1_r2, args.samplename, args.keep_intermediate, unpaired_file,
                                          nproc=args.nproc, dry_run=args.dry_run, verbose=args.verbose)
+    info('\nSPLIT_AND_SORT time: {} s\n'.format(int(time.time()) - t_sas), init_new_line=True)
+
     remove(screened_r1_r2, args.keep_intermediate, folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
     remove([f for f in os.listdir(args.input_dir) if f.endswith('.stats') and not f.endswith('_summary.stats')], args.keep_intermediate, 
            folder=args.input_dir, dry_run=args.dry_run, verbose=args.verbose)
