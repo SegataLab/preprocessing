@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.3.7'
-__date__ = '11 April 2025'
+__version__ = '0.3.8'
+__date__ = '18 April 2025'
 
 import os
 import sys
@@ -59,6 +59,7 @@ def read_params():
     parser.add_argument('--rm_agig', action='store_true', help="Remove Aldabrachelys gigantea genome")
     parser.add_argument('--rm_alho', action='store_true', help="Remove Allochrocebus lhoesti genome")
     parser.add_argument('--rm_soed', action='store_true', help="Remove Saguinus oedipus genome")
+    parser.add_argument('--rm_dmel', action='store_true', help="Remove Drosophila melanogaster genome")
     return parser.parse_args()
 
 def validate_input_dir(input_dir):
@@ -328,6 +329,7 @@ if __name__ == "__main__":
     contaminants.append("agigantea_GCA_026122505.1") if args.rm_agig else None
     contaminants.append("GCA_963574325") if args.rm_alho else None
     contaminants.append("GCA_031835075") if args.rm_soed else None
+    contaminants.append("Drosophila_melanogaster_GCF_000001215") if args.rm_dmel else None
 
     logger.info("Screening for contaminants.")
     screened_forward, fna_len_dict_forward, to_remove_forward = remove_contaminants(trimmed_forward, args.bowtie2_indexes,
