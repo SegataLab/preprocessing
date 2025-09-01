@@ -45,6 +45,7 @@ def read_params():
         help="Path to Bowtie2 indexes")
     parser.add_argument('--rm_hsap', action='store_true', help="Remove Homo sapiens genome (hg19)")
     parser.add_argument('--rm_GRCh38', action='store_true', help="Remove Homo sapiens genome (GRCh38.p14 from GCF_000001405.40)")
+    parser.add_argument('--rm_GRCh38_cDNA_ncRNA', action='store_true', help="Remove human transcripts (GRCh38.cdna.all and GRCh38.ncrna)")
     parser.add_argument('--rm_mmus', action='store_true', help="Remove Mus musculus genome")
     parser.add_argument('--rm_rrna', action='store_true', help="Remove rRNA sequences")
     parser.add_argument('--rm_pcin', action='store_true', help="Remove Phascolarctos cinereus genome")
@@ -315,6 +316,7 @@ if __name__ == "__main__":
     contaminants = ['phiX174']
     contaminants.append("hg19") if args.rm_hsap else None
     contaminants.append("GRCh38p14") if args.rm_GRCh38 else None
+    contaminants.extend(["GRCh38.cdna.all", "GRCh38.ncrna"]) if args.rm_GRCh38_cDNA_ncRNA else None
     contaminants.append("mmusculus_black6_GCA_000001635_8") if args.rm_mmus else None
     contaminants.extend(["SILVA_132_SSURef_Nr99_tax_silva", "SILVA_132_LSURef_tax_silva"]) if args.rm_rrna else None
     contaminants.append("Phascolarctos_cinereus__GCA_900166895.1__tgac_v2.0") if args.rm_pcin else None
