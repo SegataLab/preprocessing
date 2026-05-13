@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.3.8'
-__date__ = '18 April 2025'
+__version__ = '0.3.9'
+__date__ = '12 May 2026'
 
 import os
 import sys
@@ -61,6 +61,8 @@ def read_params():
     parser.add_argument('--rm_alho', action='store_true', help="Remove Allochrocebus lhoesti genome")
     parser.add_argument('--rm_soed', action='store_true', help="Remove Saguinus oedipus genome")
     parser.add_argument('--rm_dmel', action='store_true', help="Remove Drosophila melanogaster genome")
+    parser.add_argument('--rm_cfer', action='store_true', help="Remove Cryptoprocta ferox genome")
+    parser.add_argument('--rm_sscr', action='store_true', help="Remove Sus scrofa genome (GCA_000003025.7)")
     return parser.parse_args()
 
 def validate_input_dir(input_dir):
@@ -76,7 +78,7 @@ def execute_command(cmd, dry_run=False):
         logger.info("Dry run enabled. Command not executed.")
         return
     try:
-        sb.check_call(cmd, shell=True, stderr=sys.stderr)
+        sb.check_call(cmd, shell=True, stderr=sys.stderr, executable='/bin/bash')
     except sb.CalledProcessError as e:
         log_and_exit(f"Command failed: {cmd}\nError: {str(e)}")
 
@@ -175,11 +177,21 @@ def decompress_and_concatenate(task):
         with open(output_file, 'wb') as g:
             for file in file_list:
                 logger.debug(f"Processing: {file}")
-                with (gzip.open if file.endswith('.gz') else bz2.open if file.endswith('.bz2') else open)(file, 'rb') as f:
-                    shutil.copyfileobj(f, g)
+                # Determine opener based on extension
+                opener = gzip.open if file.endswith('.gz') else bz2.open if file.endswith('.bz2') else open
+
+                try:
+                    with opener(file, 'rb') as f:
+                        shutil.copyfileobj(f, g)
+                except EOFError:
+                    # Capture the specific file that failed
+                    raise Exception(f"Input file is corrupted (truncated): {file}")
+                except OSError as e:
+                    raise Exception(f"OS Error reading {file}: {e}")
 
         return output_file
     except Exception as e:
+        # This will now include the specific file name from the inner try/except
         log_and_exit(f"Failed to concatenate {output_file}: {str(e)}")
 
 # DO WE WANT TO DO PAIRED-END TRIMMING?
@@ -265,16 +277,32 @@ def split_and_sort(input_dir, r1, r2, unpaired_file, samplename, dry_run=False):
     logger.info("Splitting and sorting reads.")
     output_r1 = os.path.join(input_dir, f"{samplename}_R1.fastq.bz2")
     output_r2 = os.path.join(input_dir, f"{samplename}_R2.fastq.bz2")
-    output_un = os.path.join(input_dir, f"{samplename}_UN.fastq.bz2")
+    output_un = os.path.join(input_dir, f"{samplename}_UN.fastq.bz2") if unpaired_file else None
     output_unpaired = os.path.join(input_dir, unpaired_file)
 
     if all(os.path.isfile(f) for f in [output_r1, output_r2, output_un]):
         logger.info("Split and sort output files already exist. Skipping step.")
         return output_r1, output_r2, output_un
 
-    cmd = f"split_and_sort.new2.py --R1 {r1} --R2 {r2} --prefix {os.path.join(input_dir, samplename)}"
-    cmd += f" --unpaired {output_unpaired}" if unpaired_file else ""
+    #cmd = f"split_and_sort.new2.py --R1 {r1} --R2 {r2} --prefix {os.path.join(input_dir, samplename)}"
+    #cmd += f" --unpaired {output_unpaired}" if unpaired_file else ""
+
+    # Use the repair.sh script from BBmap
+    cmd = f"repair.sh in={r1} in2={r2} out={output_r1} out2={output_r2}"
+    cmd += f" outs={output_un}.tmp" if unpaired_file else ""
+
     execute_command(cmd, dry_run)
+
+    # unpaired from repair.sh needs to be reduced to those from the unpaired file
+    if unpaired_file:
+        # I could have done this directly in Python...
+        cmd = f'bzgrep -wA3 -f <(bzcat {unpaired_file}) {output_un}.tmp | grep -v "^--$" | bzip2 -c > {output_un}'
+
+        ## alternative using stadard pipes instead of forcing executable='/bin/bash'
+        #cmd = 'bzcat {unpaired_file} | bzgrep -wA3 -f - {output_un}.tmp | grep -v "^--$" | bzip2 -c > {output_un}'
+
+        execute_command(cmd, dry_run)
+        remove([f"{output_un}.tmp"], False, None, dry_run)
 
     return output_r1, output_r2, output_un
 
@@ -332,6 +360,8 @@ if __name__ == "__main__":
     contaminants.append("GCA_963574325") if args.rm_alho else None
     contaminants.append("GCA_031835075") if args.rm_soed else None
     contaminants.append("Drosophila_melanogaster_GCF_000001215") if args.rm_dmel else None
+    contaminants.append("Cryptoprocta_ferox_GCA_028646485_1") if args.rm_cfer else None
+    contaminants.append("GCA_000003025.7_T2T-Sscrofa_genomic") if args.rm_sscr else None
 
     logger.info("Screening for contaminants.")
     screened_forward, fna_len_dict_forward, to_remove_forward = remove_contaminants(trimmed_forward, args.bowtie2_indexes,
