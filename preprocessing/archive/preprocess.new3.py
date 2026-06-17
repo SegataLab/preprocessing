@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.3.10'
-__date__ = '9 June 2026'
+__version__ = '0.3.8'
+__date__ = '18 April 2025'
 
 import os
 import sys
@@ -17,7 +17,8 @@ import shutil
 from Bio import SeqIO
 
 if sys.version_info < (3, 6):
-    raise Exception("Preprocessing requires Python 3.6 or higher. Your current Python version is {}.{}.{}".format(sys.version_info[0], sys.version_info[1], sys.version_info[2]))
+    raise Exception("Preprocessing requires Python 3.6 or higher. Your current Python version is {}.{}.{}".format(
+        sys.version_info[0], sys.version_info[1], sys.version_info[2]))
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -26,55 +27,39 @@ def log_and_exit(message, code=1):
     logger.error(message)
     sys.exit(code)
 
-DEFAULT_extension = ".fastq.gz"
-DEFAULT_forward = "_R1_"
-DEFAULT_reverse = "_R2_"
-DEFAULT_nproc = 2
-DEFAULT_bowtie2_indexes = '/shares/CIBIO-Storage/CM/scratch/databases/bowtie2_indexes'
-DEFAULT_qc = "trim_galore"
-
-CHOICES_extension=[DEFAULT_extension, ".fq.gz", ".fastq.bz2", ".fq.bz2"]
-CHOICES_qc=[DEFAULT_qc, 'fastp']
-
 def read_params():
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-
     parser.add_argument('-i', '--input_dir', required=True, help="Path to input directory")
-    parser.add_argument('-e', '--extension', default=DEFAULT_extension, choices=CHOICES_extension, help=f"Extension of the raw input files (default: {DEFAULT_extension})")
+    parser.add_argument('-e', '--extension', default=".fastq.gz", choices=[".fastq.gz", ".fq.gz", ".fastq.bz2", ".fq.bz2"],
+        help="Extension of the raw input files")
     parser.add_argument('-s', '--samplename', default="", help="Sample name")
-    parser.add_argument('-f', '--forward', default=DEFAULT_forward, help=f"Identifier for forward reads (default: {DEFAULT_forward})")
-    parser.add_argument('-r', '--reverse', default=DEFAULT_reverse, help=f"Identifier for reverse reads (default: {DEFAULT_reverse})")
-    parser.add_argument('-n', '--nproc', type=int, default=DEFAULT_nproc, help=f"Number of threads used for decompressing, concatenating, and Bowtie2 (default: {DEFAULT_nproc})")
+    parser.add_argument('-f', '--forward', default="_R1_", help="Identifier for forward reads")
+    parser.add_argument('-r', '--reverse', default="_R2_", help="Identifier for reverse reads")
+    parser.add_argument('-n', '--nproc', type=int, default=2,
+        help="Number of threads, used in some parts (i.e., decompressing and concatenating and Bowtie2)")
     parser.add_argument('-p', '--paired_end', action='store_true', help="Indicates paired-end sequencing")
     parser.add_argument('-k', '--keep_intermediate', action='store_true', help="Keep intermediate files")
-    parser.add_argument('-x', '--bowtie2_indexes', default=DEFAULT_bowtie2_indexes, help=f"Path to Bowtie2 indexes (default: {DEFAULT_bowtie2_indexes})")
-    parser.add_argument('--qc', default='', choices=CHOICES_qc, help=f"Quality control tool to use (default: {DEFAULT_qc})")
-
-    rm_conts = parser.add_argument_group(title="Remove contaminants", description="Parameters to select which contamint genomes to remove.")
-    rm_conts.add_argument('--rm_hsap', action='store_true', help="Remove Homo sapiens genome (hg19)")
-    rm_conts.add_argument('--rm_GRCh38', action='store_true', help="Remove Homo sapiens genome (GRCh38.p14 from GCF_000001405.40)")
-    rm_conts.add_argument('--rm_GRCh38_cDNA_ncRNA', action='store_true', help="Remove human transcripts (GRCh38.cdna.all and GRCh38.ncrna)")
-    rm_conts.add_argument('--rm_mmus', action='store_true', help="Remove Mus musculus genome")
-    rm_conts.add_argument('--rm_rrna', action='store_true', help="Remove rRNA sequences")
-    rm_conts.add_argument('--rm_pcin', action='store_true', help="Remove Phascolarctos cinereus genome")
-    rm_conts.add_argument('--rm_pcoq', action='store_true', help="Remove Propithecus coquereli genome")
-    rm_conts.add_argument('--rm_mmur', action='store_true', help="Remove Microcebus murinus genome")
-    rm_conts.add_argument('--rm_mmul', action='store_true', help="Remove Macaca mulatta genome")
-    rm_conts.add_argument('--rm_ptro', action='store_true', help="Remove Pan troglodytes genome")
-    rm_conts.add_argument('--rm_sbol', action='store_true', help="Remove Saimiri boliviensis genome")
-    rm_conts.add_argument('--rm_vvar', action='store_true', help="Remove Varecia variegata genome")
-    rm_conts.add_argument('--rm_clup', action='store_true', help="Remove Canis lupus familiaris genome")
-    rm_conts.add_argument('--rm_cjac', action='store_true', help="Remove Callithrix jacchus genome")
-    rm_conts.add_argument('--rm_agig', action='store_true', help="Remove Aldabrachelys gigantea genome")
-    rm_conts.add_argument('--rm_alho', action='store_true', help="Remove Allochrocebus lhoesti genome")
-    rm_conts.add_argument('--rm_soed', action='store_true', help="Remove Saguinus oedipus genome")
-    rm_conts.add_argument('--rm_dmel', action='store_true', help="Remove Drosophila melanogaster genome")
-    rm_conts.add_argument('--rm_cfer', action='store_true', help="Remove Cryptoprocta ferox genome")
-    rm_conts.add_argument('--rm_sscr', action='store_true', help="Remove Sus scrofa genome (GCA_000003025.7)")
-
     parser.add_argument('--dry_run', action='store_true', help="Print commands without executing them")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose logging")
-
+    parser.add_argument('-x', '--bowtie2_indexes', default='/shares/CIBIO-Storage/CM/scratch/databases/bowtie2_indexes',
+        help="Path to Bowtie2 indexes")
+    parser.add_argument('--rm_hsap', action='store_true', help="Remove Homo sapiens genome (hg19)")
+    parser.add_argument('--rm_GRCh38', action='store_true', help="Remove Homo sapiens genome (GRCh38.p14 from GCF_000001405.40)")
+    parser.add_argument('--rm_mmus', action='store_true', help="Remove Mus musculus genome")
+    parser.add_argument('--rm_rrna', action='store_true', help="Remove rRNA sequences")
+    parser.add_argument('--rm_pcin', action='store_true', help="Remove Phascolarctos cinereus genome")
+    parser.add_argument('--rm_pcoq', action='store_true', help="Remove Propithecus coquereli genome")
+    parser.add_argument('--rm_mmur', action='store_true', help="Remove Microcebus murinus genome")
+    parser.add_argument('--rm_mmul', action='store_true', help="Remove Macaca mulatta genome")
+    parser.add_argument('--rm_ptro', action='store_true', help="Remove Pan troglodytes genome")
+    parser.add_argument('--rm_sbol', action='store_true', help="Remove Saimiri boliviensis genome")
+    parser.add_argument('--rm_vvar', action='store_true', help="Remove Varecia variegata genome")
+    parser.add_argument('--rm_clup', action='store_true', help="Remove Canis lupus familiaris genome")
+    parser.add_argument('--rm_cjac', action='store_true', help="Remove Callithrix jacchus genome")
+    parser.add_argument('--rm_agig', action='store_true', help="Remove Aldabrachelys gigantea genome")
+    parser.add_argument('--rm_alho', action='store_true', help="Remove Allochrocebus lhoesti genome")
+    parser.add_argument('--rm_soed', action='store_true', help="Remove Saguinus oedipus genome")
+    parser.add_argument('--rm_dmel', action='store_true', help="Remove Drosophila melanogaster genome")
     return parser.parse_args()
 
 def validate_input_dir(input_dir):
@@ -90,7 +75,7 @@ def execute_command(cmd, dry_run=False):
         logger.info("Dry run enabled. Command not executed.")
         return
     try:
-        sb.check_call(cmd, shell=True, stderr=sys.stderr, executable='/bin/bash')
+        sb.check_call(cmd, shell=True, stderr=sys.stderr)
     except sb.CalledProcessError as e:
         log_and_exit(f"Command failed: {cmd}\nError: {str(e)}")
 
@@ -189,48 +174,14 @@ def decompress_and_concatenate(task):
         with open(output_file, 'wb') as g:
             for file in file_list:
                 logger.debug(f"Processing: {file}")
-                opener = gzip.open if file.endswith('.gz') else bz2.open if file.endswith('.bz2') else open
-
-                try:
-                    with opener(file, 'rb') as f:
-                        shutil.copyfileobj(f, g)
-                except EOFError:
-                    raise Exception(f"Input file is corrupted (truncated): {file}")
-                except OSError as e:
-                    raise Exception(f"OS Error reading {file}: {e}")
+                with (gzip.open if file.endswith('.gz') else bz2.open if file.endswith('.bz2') else open)(file, 'rb') as f:
+                    shutil.copyfileobj(f, g)
 
         return output_file
     except Exception as e:
         log_and_exit(f"Failed to concatenate {output_file}: {str(e)}")
 
-# Note: Do we want to do paired-end trimming?
-def quality_control__trim_galore(input_files, output_dir, dry_run=False, nproc=1):
-    logger.info(f"Performing quality control on {','.join(input_files)}")
-    tasks = [(input_file, output_dir, dry_run) for input_file in input_files]
-
-    try:
-        with mp.Pool(processes=nproc) as pool:
-            trimmed_files = pool.map(process_quality_control__trim_galore, tasks)
-    except OSError as e:
-        log_and_exit(f"quality_control failed: {str(e)}")
-
-    logger.debug(f"Completed quality control.")
-    return trimmed_files
-
-def process_quality_control__trim_galore(task):
-    input_file, output_dir, dry_run = task
-    logger.info(f"Processing {input_file}")
-    cmd = (
-        "trim_galore --nextera --length 75 --2colour 20 --max_n 2 --trim-n -j 1 "
-        f"--no_report_file --suppress_warn --output_dir {output_dir} {input_file}"
-    )
-    execute_command(cmd, dry_run)
-    trimmed_file = os.path.join(output_dir, os.path.basename(input_file).replace('.fastq', '_trimmed.fq'))
-    if not os.path.isfile(trimmed_file):
-        log_and_exit(f"Quality control failed for {input_file}.")
-    return trimmed_file
-
-def quality_control__fastp(input_files, output_dir, dry_run=False, nproc=1):
+def quality_control(input_files, output_dir, dry_run=False, nproc=1):
     logger.info(f"Performing quality control on {','.join(input_files)}")
     input_R1 = [i for i in input_files if '_R1' in os.path.basename(i)][0]
     input_R2 = [i for i in input_files if '_R2' in os.path.basename(i)][0]
@@ -273,7 +224,7 @@ def remove_contaminants(input_file, bowtie2_index_dir, output_dir, contaminant_l
     current_input = input_file
     to_remove = []
     fna_len_lists = {'inp': [], 'out': []}
-    rx = 'R1' if '_R1' in input_file else 'R2' if '_R2' in input_file else None  # Note: Maybe we should use the forward/revers parameters?
+    rx = 'R1' if '_R1' in input_file else 'R2' if '_R2' in input_file else None  # MAYBE WE SHOULD USE THE FWD/REV PARAMS?
 
     if not rx:
         log_and_exit(f"Failed to identify forward (R1) or reverse (R2) from input file {input_file}.")
@@ -304,29 +255,16 @@ def split_and_sort(input_dir, r1, r2, unpaired_file, samplename, dry_run=False):
     logger.info("Splitting and sorting reads.")
     output_r1 = os.path.join(input_dir, f"{samplename}_R1.fastq.bz2")
     output_r2 = os.path.join(input_dir, f"{samplename}_R2.fastq.bz2")
-    output_un = os.path.join(input_dir, f"{samplename}_UN.fastq.bz2") if unpaired_file else None
+    output_un = os.path.join(input_dir, f"{samplename}_UN.fastq.bz2")
     output_unpaired = os.path.join(input_dir, unpaired_file)
 
     if all(os.path.isfile(f) for f in [output_r1, output_r2, output_un]):
         logger.info("Split and sort output files already exist. Skipping step.")
         return output_r1, output_r2, output_un
 
-    # Use the repair.sh script from BBmap
-    cmd = f"repair.sh in={r1} in2={r2} out={output_r1} out2={output_r2}"
-    cmd += f" outs={output_un}.tmp" if unpaired_file else ""
-
+    cmd = f"split_and_sort.new2.py --R1 {r1} --R2 {r2} --prefix {os.path.join(input_dir, samplename)}"
+    cmd += f" --unpaired {output_unpaired}" if unpaired_file else ""
     execute_command(cmd, dry_run)
-
-    # unpaired from repair.sh needs to be reduced to those from the unpaired file
-    if unpaired_file:
-        # I could have done this directly in Python...
-        cmd = f'bzgrep -wA3 -f <(bzcat {unpaired_file}) {output_un}.tmp | grep -v "^--$" | bzip2 -c > {output_un}'
-
-        ## alternative using stadard pipes instead of forcing executable='/bin/bash'
-        #cmd = 'bzcat {unpaired_file} | bzgrep -wA3 -f - {output_un}.tmp | grep -v "^--$" | bzip2 -c > {output_un}'
-
-        execute_command(cmd, dry_run)
-        remove([f"{output_un}.tmp"], False, None, dry_run)
 
     return output_r1, output_r2, output_un
 
@@ -341,9 +279,6 @@ if __name__ == "__main__":
     logger.info("Validating input directory.")
     input_dir = validate_input_dir(args.input_dir)
 
-    if not args.samplename:
-        args.samplename = os.path.basename(input_dir)
-
     logger.info("Starting preprocessing pipeline.")
 
     forward_files, reverse_files = get_files(input_dir, args.extension, args.forward, args.reverse)
@@ -355,16 +290,15 @@ if __name__ == "__main__":
     stats_forward = [stats_concatenated_R1]
     stats_reverse = [stats_concatenated_R2]
 
-    # Set specific quality control function
-    quality_control = quality_control__trim_galore if args.qc == DEFAULT_qc else quality_control__fastp
     trimmed_forward, trimmed_reverse = quality_control([concatenated_forward, concatenated_reverse], input_dir, args.dry_run, args.nproc)
-
     stats_trimmed_R1 = os.path.join(input_dir, "stats_trimmed_R1.txt")
     stats_trimmed_R2 = os.path.join(input_dir, "stats_trimmed_R2.txt")
     stats_forward.append(stats_trimmed_R1)
     stats_reverse.append(stats_trimmed_R2)
 
-    run_fna_len([concatenated_forward, concatenated_reverse, trimmed_forward, trimmed_reverse], [stats_concatenated_R1, stats_concatenated_R2, stats_trimmed_R1, stats_trimmed_R2], args.dry_run, args.nproc)
+    run_fna_len([concatenated_forward, concatenated_reverse, trimmed_forward, trimmed_reverse],
+                [stats_concatenated_R1, stats_concatenated_R2, stats_trimmed_R1, stats_trimmed_R2],
+                args.dry_run, args.nproc)
     remove([concatenated_forward, concatenated_reverse], args.keep_intermediate, input_dir, args.dry_run)
 
     unpaired_file = get_unpaired(input_dir, trimmed_forward, trimmed_reverse, args.samplename) if args.paired_end else None
@@ -372,7 +306,6 @@ if __name__ == "__main__":
     contaminants = ['phiX174']
     contaminants.append("hg19") if args.rm_hsap else None
     contaminants.append("GRCh38p14") if args.rm_GRCh38 else None
-    contaminants.extend(["GRCh38.cdna.all", "GRCh38.ncrna"]) if args.rm_GRCh38_cDNA_ncRNA else None
     contaminants.append("mmusculus_black6_GCA_000001635_8") if args.rm_mmus else None
     contaminants.extend(["SILVA_132_SSURef_Nr99_tax_silva", "SILVA_132_LSURef_tax_silva"]) if args.rm_rrna else None
     contaminants.append("Phascolarctos_cinereus__GCA_900166895.1__tgac_v2.0") if args.rm_pcin else None
@@ -388,17 +321,19 @@ if __name__ == "__main__":
     contaminants.append("GCA_963574325") if args.rm_alho else None
     contaminants.append("GCA_031835075") if args.rm_soed else None
     contaminants.append("Drosophila_melanogaster_GCF_000001215") if args.rm_dmel else None
-    contaminants.append("Cryptoprocta_ferox_GCA_028646485_1") if args.rm_cfer else None
-    contaminants.append("GCA_000003025.7_T2T-Sscrofa_genomic") if args.rm_sscr else None
 
     logger.info("Screening for contaminants.")
-    screened_forward, fna_len_dict_forward, to_remove_forward = remove_contaminants(trimmed_forward, args.bowtie2_indexes, input_dir, contaminants, args.nproc, args.dry_run)
+    screened_forward, fna_len_dict_forward, to_remove_forward = remove_contaminants(trimmed_forward, args.bowtie2_indexes,
+                                                                                    input_dir, contaminants, args.nproc, args.dry_run)
     stats_forward.extend(fna_len_dict_forward['out'])
 
-    screened_reverse, fna_len_dict_reverse, to_remove_reverse = remove_contaminants(trimmed_reverse, args.bowtie2_indexes, input_dir, contaminants, args.nproc, args.dry_run)
+    screened_reverse, fna_len_dict_reverse, to_remove_reverse = remove_contaminants(trimmed_reverse, args.bowtie2_indexes,
+                                                                                    input_dir, contaminants, args.nproc, args.dry_run)
     stats_reverse.extend(fna_len_dict_reverse['out'])
 
-    run_fna_len(fna_len_dict_forward['inp'] + fna_len_dict_reverse['inp'], fna_len_dict_forward['out'] + fna_len_dict_reverse['out'], args.dry_run, args.nproc)
+    run_fna_len(fna_len_dict_forward['inp'] + fna_len_dict_reverse['inp'],
+                fna_len_dict_forward['out'] + fna_len_dict_reverse['out'],
+                args.dry_run, args.nproc)
     remove(to_remove_reverse + to_remove_forward, args.keep_intermediate, input_dir, args.dry_run)
 
     split_outputs = split_and_sort(input_dir, screened_forward, screened_reverse, unpaired_file, args.samplename, args.dry_run)
@@ -412,6 +347,7 @@ if __name__ == "__main__":
     stat_files = stats_forward + stats_reverse + [stats_split_R1, stats_split_R2, stats_split_UN]
     summary_stats_file = os.path.join(input_dir, f"{args.samplename}_summary.stats")
     run_cat_stats(input_dir, stat_files, summary_stats_file, args.dry_run)
+
     remove(stat_files, args.keep_intermediate, input_dir, args.dry_run)
 
     logger.info("Preprocessing pipeline completed successfully.")
