@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.3.10'
-__date__ = '9 June 2026'
+__version__ = '0.3.11'
+__date__ = '8 August 2026'
 
 import os
 import sys
@@ -51,26 +51,27 @@ def read_params():
     parser.add_argument('--qc', default='', choices=CHOICES_qc, help=f"Quality control tool to use (default: {DEFAULT_qc})")
 
     rm_conts = parser.add_argument_group(title="Remove contaminants", description="Parameters to select which contamint genomes to remove.")
-    rm_conts.add_argument('--rm_hsap', action='store_true', help="Remove Homo sapiens genome (hg19)")
-    rm_conts.add_argument('--rm_GRCh38', action='store_true', help="Remove Homo sapiens genome (GRCh38.p14 from GCF_000001405.40)")
+    rm_conts.add_argument('--rm_hsap', action='store_true', help="Remove Homo sapiens (hg19)")
+    rm_conts.add_argument('--rm_GRCh38', action='store_true', help="Remove Homo sapiens (GRCh38.p14 from GCF_000001405.40)")
     rm_conts.add_argument('--rm_GRCh38_cDNA_ncRNA', action='store_true', help="Remove human transcripts (GRCh38.cdna.all and GRCh38.ncrna)")
-    rm_conts.add_argument('--rm_mmus', action='store_true', help="Remove Mus musculus genome")
+    rm_conts.add_argument('--rm_mmus', action='store_true', help="Remove Mus musculus")
     rm_conts.add_argument('--rm_rrna', action='store_true', help="Remove rRNA sequences")
-    rm_conts.add_argument('--rm_pcin', action='store_true', help="Remove Phascolarctos cinereus genome")
-    rm_conts.add_argument('--rm_pcoq', action='store_true', help="Remove Propithecus coquereli genome")
-    rm_conts.add_argument('--rm_mmur', action='store_true', help="Remove Microcebus murinus genome")
-    rm_conts.add_argument('--rm_mmul', action='store_true', help="Remove Macaca mulatta genome")
-    rm_conts.add_argument('--rm_ptro', action='store_true', help="Remove Pan troglodytes genome")
-    rm_conts.add_argument('--rm_sbol', action='store_true', help="Remove Saimiri boliviensis genome")
-    rm_conts.add_argument('--rm_vvar', action='store_true', help="Remove Varecia variegata genome")
-    rm_conts.add_argument('--rm_clup', action='store_true', help="Remove Canis lupus familiaris genome")
-    rm_conts.add_argument('--rm_cjac', action='store_true', help="Remove Callithrix jacchus genome")
-    rm_conts.add_argument('--rm_agig', action='store_true', help="Remove Aldabrachelys gigantea genome")
-    rm_conts.add_argument('--rm_alho', action='store_true', help="Remove Allochrocebus lhoesti genome")
-    rm_conts.add_argument('--rm_soed', action='store_true', help="Remove Saguinus oedipus genome")
-    rm_conts.add_argument('--rm_dmel', action='store_true', help="Remove Drosophila melanogaster genome")
-    rm_conts.add_argument('--rm_cfer', action='store_true', help="Remove Cryptoprocta ferox genome")
-    rm_conts.add_argument('--rm_sscr', action='store_true', help="Remove Sus scrofa genome (GCA_000003025.7)")
+    rm_conts.add_argument('--rm_pcin', action='store_true', help="Remove Phascolarctos cinereus")
+    rm_conts.add_argument('--rm_pcoq', action='store_true', help="Remove Propithecus coquereli")
+    rm_conts.add_argument('--rm_mmur', action='store_true', help="Remove Microcebus murinus")
+    rm_conts.add_argument('--rm_mmul', action='store_true', help="Remove Macaca mulatta")
+    rm_conts.add_argument('--rm_ptro', action='store_true', help="Remove Pan troglodytes")
+    rm_conts.add_argument('--rm_sbol', action='store_true', help="Remove Saimiri boliviensis")
+    rm_conts.add_argument('--rm_vvar', action='store_true', help="Remove Varecia variegata")
+    rm_conts.add_argument('--rm_clup', action='store_true', help="Remove Canis lupus familiaris")
+    rm_conts.add_argument('--rm_cjac', action='store_true', help="Remove Callithrix jacchus")
+    rm_conts.add_argument('--rm_agig', action='store_true', help="Remove Aldabrachelys gigantea")
+    rm_conts.add_argument('--rm_alho', action='store_true', help="Remove Allochrocebus lhoesti")
+    rm_conts.add_argument('--rm_soed', action='store_true', help="Remove Saguinus oedipus")
+    rm_conts.add_argument('--rm_dmel', action='store_true', help="Remove Drosophila melanogaster")
+    rm_conts.add_argument('--rm_cfer', action='store_true', help="Remove Cryptoprocta ferox")
+    rm_conts.add_argument('--rm_sscr', action='store_true', help="Remove Sus scrofa (GCA_000003025.7)")
+    rm_conts.add_argument('--rm_rnor', action='store_true', help="Remove Rattus norvegicus (GCF_036323735.1_GRCr8)")
 
     parser.add_argument('--dry_run', action='store_true', help="Print commands without executing them")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose logging")
@@ -390,6 +391,7 @@ if __name__ == "__main__":
     contaminants.append("Drosophila_melanogaster_GCF_000001215") if args.rm_dmel else None
     contaminants.append("Cryptoprocta_ferox_GCA_028646485_1") if args.rm_cfer else None
     contaminants.append("GCA_000003025.7_T2T-Sscrofa_genomic") if args.rm_sscr else None
+    contaminants.append("rnorvegicus_GCF_036323735.1_GRCr8") if args.rm_rnor else None
 
     logger.info("Screening for contaminants.")
     screened_forward, fna_len_dict_forward, to_remove_forward = remove_contaminants(trimmed_forward, args.bowtie2_indexes, input_dir, contaminants, args.nproc, args.dry_run)
