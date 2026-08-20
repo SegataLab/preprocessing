@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
 __author__ = 'Francesco Asnicar (f.asnicar@unitn.it)'
-__version__ = '0.3.11'
-__date__ = '8 August 2026'
+__version__ = '0.3.12'
+__date__ = '18 August 2026'
 
 import os
 import sys
@@ -72,6 +72,7 @@ def read_params():
     rm_conts.add_argument('--rm_cfer', action='store_true', help="Remove Cryptoprocta ferox")
     rm_conts.add_argument('--rm_sscr', action='store_true', help="Remove Sus scrofa (GCA_000003025.7)")
     rm_conts.add_argument('--rm_rnor', action='store_true', help="Remove Rattus norvegicus (GCF_036323735.1_GRCr8)")
+    rm_conts.add_argument('--rm_ggal', action='store_true', help="Remove Gallus gallus (GCF_000002315.6_GRCg6a)")
 
     parser.add_argument('--dry_run', action='store_true', help="Print commands without executing them")
     parser.add_argument('--verbose', action='store_true', help="Enable verbose logging")
@@ -392,6 +393,7 @@ if __name__ == "__main__":
     contaminants.append("Cryptoprocta_ferox_GCA_028646485_1") if args.rm_cfer else None
     contaminants.append("GCA_000003025.7_T2T-Sscrofa_genomic") if args.rm_sscr else None
     contaminants.append("rnorvegicus_GCF_036323735.1_GRCr8") if args.rm_rnor else None
+    contaminants.append("ggallus_GCF_000002315.6_GRCg6a") if args.rm_ggal else None
 
     logger.info("Screening for contaminants.")
     screened_forward, fna_len_dict_forward, to_remove_forward = remove_contaminants(trimmed_forward, args.bowtie2_indexes, input_dir, contaminants, args.nproc, args.dry_run)
