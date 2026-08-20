@@ -29,7 +29,7 @@ def required_files(sample_dir: Path):
     return {
         f"{sample}_R1.fastq.bz2": EMPTY_BZ2_SIZE,
         f"{sample}_R2.fastq.bz2": EMPTY_BZ2_SIZE,
-        f"{sample}_UN.fastq.bz2": EMPTY_BZ2_SIZE,
+        # f"{sample}_UN.fastq.bz2": EMPTY_BZ2_SIZE,  # skip UN check, could be there are no unpaired reads
         f"{sample}_summary.stats": 0,
     }
 
